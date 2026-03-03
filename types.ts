@@ -7,7 +7,7 @@ export interface Point {
 
 export type StartLocation = 'center' | 'topLeft' | 'topRight' | 'bottomLeft' | 'bottomRight' | 'custom';
 export type ProcessingMode = 'outline' | 'fill';
-export type FillStyle = 'linear' | 'scribble';
+export type FillStyle = 'linear' | 'scribble' | 'contour';
 export type WorkspaceType = 'rectangular' | 'circular';
 export type PathStartPreference = 'original' | 'center' | 'edge';
 export type PathEndPreference = 'original' | 'center' | 'edge';

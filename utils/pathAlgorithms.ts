@@ -186,22 +186,62 @@ const generateLinearFill = (imageData: ImageData, settings: GCodeSettings): Poin
   const diag = Math.sqrt(width * width + height * height);
   const center = { x: width / 2, y: height / 2 };
 
-  const addSketchyLine = (p1: Point, p2: Point, path: Point[]) => {
+  const addEllipticalHatch = (p1: Point, p2: Point, path: Point[], lineIdx: number) => {
       const distance = Math.sqrt(distSq(p1, p2));
-      const steps = Math.ceil(distance / 4);
-      path.push(p1);
-      if (steps > 1) {
-          const dx = (p2.x - p1.x) / steps, dy = (p2.y - p1.y) / steps;
-          for (let i = 1; i < steps; i++) {
-              path.push({ x: p1.x + dx * i + (Math.random() - 0.5) * 0.8, y: p1.y + dy * i + (Math.random() - 0.5) * 0.8 });
-          }
+      if (distance < 2) {
+          path.push(p1);
+          path.push(p2);
+          return;
       }
-      path.push(p2);
+      
+      const loopSpacing = spacing * 0.5; 
+      const loops = distance / loopSpacing;
+      const steps = Math.ceil(distance * 1.5); 
+      
+      const dx = p2.x - p1.x;
+      const dy = p2.y - p1.y;
+      const angle = Math.atan2(dy, dx);
+      
+      const phaseOffset = (lineIdx % 2 === 0) ? Math.PI : 0;
+      
+      for (let i = 0; i <= steps; i++) {
+          const t = i / steps;
+          const loopPhase = t * loops * Math.PI * 2 + phaseOffset;
+          
+          const bx = p1.x + dx * t;
+          const by = p1.y + dy * t;
+          
+          let brightness = 255;
+          const px = Math.floor(bx);
+          const py = Math.floor(by);
+          if (px >= 0 && px < width && py >= 0 && py < height) {
+              const idx = (py * width + px) * 4;
+              brightness = (data[idx] + data[idx + 1] + data[idx + 2]) / 3;
+          }
+          
+          let intensity = settings.invert ? (brightness / 255) : (1 - brightness / 255);
+          intensity = Math.max(0.1, Math.min(1, intensity));
+          
+          // Dynamic radii based on intensity: darker areas get wider ellipses
+          const radiusX = spacing * 0.3 * intensity; 
+          const radiusY = spacing * 0.9 * intensity; 
+          
+          const cx = Math.cos(loopPhase) * radiusX;
+          const cy = Math.sin(loopPhase) * radiusY;
+          
+          const ox = cx * Math.cos(angle) - cy * Math.sin(angle);
+          const oy = cx * Math.sin(angle) + cy * Math.cos(angle);
+          
+          path.push({ x: bx + ox, y: by + oy });
+      }
   };
 
   let scanDir = 1; 
+  let lineIndex = 0;
   for (let i = -diag; i < diag; i += spacing) {
-      const currentAngle = baseAngleRad + Math.sin(i * 0.015) * 0.15;
+      lineIndex++;
+      // Vary the angle slightly to create a wavy, organic flow instead of rigid straight lines
+      const currentAngle = baseAngleRad + Math.sin(i * 0.03) * 0.15;
       const cosA = Math.cos(currentAngle), sinA = Math.sin(currentAngle);
       const rOriginX = center.x - i * sinA, rOriginY = center.y + i * cosA;
       const segments: {start: Point, end: Point}[] = [];
@@ -224,9 +264,10 @@ const generateLinearFill = (imageData: ImageData, settings: GCodeSettings): Poin
       }
       if (segments.length === 0) continue;
       if (scanDir === -1) {
-          segments.reverse(); for (const seg of segments) addSketchyLine(seg.end, seg.start, points);
+          segments.reverse(); 
+          for (const seg of segments) addEllipticalHatch(seg.end, seg.start, points, lineIndex);
       } else {
-          for (const seg of segments) addSketchyLine(seg.start, seg.end, points);
+          for (const seg of segments) addEllipticalHatch(seg.start, seg.end, points, lineIndex);
       }
       scanDir *= -1;
   }
@@ -317,6 +358,81 @@ const generateMSTPath = (points: Point[]): Point[] => {
   return path;
 };
 
+const generateContourFill = (imageData: ImageData, settings: GCodeSettings): Point[] => {
+  const { width, height, data } = imageData;
+  if (width <= 0 || height <= 0) return [];
+
+  const spacing = Math.max(2, Math.floor(settings.fillSpacing));
+  const grid = new Float32Array(width * height);
+  const INF = 999999;
+
+  // 1. Binarize
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      if (x === 0 || x === width - 1 || y === 0 || y === height - 1) {
+         grid[y * width + x] = 0;
+         continue;
+      }
+      const idx = (y * width + x) * 4;
+      const brightness = (data[idx] + data[idx+1] + data[idx+2]) / 3;
+      const isDark = settings.invert ? (brightness > settings.threshold) : (brightness < settings.threshold);
+      grid[y * width + x] = isDark ? INF : 0;
+    }
+  }
+
+  // 2. Distance Transform (Chamfer 3-4)
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      if (grid[y * width + x] === 0) continue;
+      let minVal = grid[y * width + x];
+      if (x > 0) minVal = Math.min(minVal, grid[y * width + (x - 1)] + 3);
+      if (y > 0) minVal = Math.min(minVal, grid[(y - 1) * width + x] + 3);
+      if (x > 0 && y > 0) minVal = Math.min(minVal, grid[(y - 1) * width + (x - 1)] + 4);
+      if (x < width - 1 && y > 0) minVal = Math.min(minVal, grid[(y - 1) * width + (x + 1)] + 4);
+      grid[y * width + x] = minVal;
+    }
+  }
+  for (let y = height - 1; y >= 0; y--) {
+    for (let x = width - 1; x >= 0; x--) {
+      let minVal = grid[y * width + x];
+      if (x < width - 1) minVal = Math.min(minVal, grid[y * width + (x + 1)] + 3);
+      if (y < height - 1) minVal = Math.min(minVal, grid[(y + 1) * width + x] + 3);
+      if (x < width - 1 && y < height - 1) minVal = Math.min(minVal, grid[(y + 1) * width + (x + 1)] + 4);
+      if (x > 0 && y < height - 1) minVal = Math.min(minVal, grid[(y + 1) * width + (x - 1)] + 4);
+      grid[y * width + x] = minVal;
+    }
+  }
+
+  // 3. Extract Spiral Contours
+  const points: Point[] = [];
+  const step = spacing * 3;
+  const tolerance = step * 0.35; 
+  const cx = width / 2;
+  const cy = height / 2;
+
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      let dist = grid[y * width + x];
+      if (dist >= step - tolerance && dist < INF) {
+        const angle = Math.atan2(y - cy, x - cx);
+        const normalizedAngle = (angle + Math.PI) / (2 * Math.PI);
+        dist += normalizedAngle * step;
+        
+        const mod = dist % step;
+        if (mod <= tolerance || mod >= step - tolerance) {
+          points.push({ x, y });
+        }
+      }
+    }
+  }
+
+  if (points.length === 0) return [];
+
+  // 4. Thin and Connect
+  const thinned = thinPoints(points, width, height);
+  return generateMSTPath(thinned.length > 0 ? thinned : points);
+};
+
 export const processImageToSingleLine = (
   imageData: ImageData,
   settings: GCodeSettings,
@@ -324,7 +440,13 @@ export const processImageToSingleLine = (
 ): Point[] => {
   let points: Point[] = [];
   if (settings.processingMode === 'fill') {
-    points = settings.fillStyle === 'scribble' ? generateScribbleFill(imageData, settings) : generateLinearFill(imageData, settings);
+    if (settings.fillStyle === 'contour') {
+        points = generateContourFill(imageData, settings);
+    } else if (settings.fillStyle === 'scribble') {
+        points = generateScribbleFill(imageData, settings);
+    } else {
+        points = generateLinearFill(imageData, settings);
+    }
     return settings.smoothing > 0 ? smoothPath(points, 1) : points;
   }
   points = settings.detectionMode === 'edge' ? detectEdges(imageData, settings.threshold, settings.pointDensity) : detectDarkness(imageData, settings.threshold, settings.pointDensity);

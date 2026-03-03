@@ -44,7 +44,7 @@ const App: React.FC = () => {
   // Simulation State
   const [simProgress, setSimProgress] = useState(100);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [simSpeed] = useState(0.5);
+  const [simSpeed, setSimSpeed] = useState(0.5);
   const animationRef = useRef<number | null>(null);
 
   const [settings, setSettings] = useState<GCodeSettings>({
@@ -61,7 +61,7 @@ const App: React.FC = () => {
     startLocation: 'center',
     customStartPoint: null,
     processingMode: 'outline',
-    fillStyle: 'linear',
+    fillStyle: 'contour',
     fillSpacing: 4,
     fillAngle: 0,
     imagePlacement: { x: 50, y: 50, width: 100, height: 100 },
@@ -166,6 +166,66 @@ const App: React.FC = () => {
     return () => { if (animationRef.current) cancelAnimationFrame(animationRef.current); };
   }, [isPlaying, processedPath.length, simSpeed]);
 
+  const getExportPath = useCallback((): Point[] => {
+    if (processedPath.length < 2) return processedPath;
+    
+    let path = [...processedPath];
+    const { x: placeX, y: placeY, width: placeW, height: placeH } = settings.imagePlacement;
+    const cx = settings.scaleX / 2;
+    const cy = settings.scaleY / 2;
+
+    const getWorkspaceMM = (p: Point) => {
+        let nX = p.x / imgDimensions.w;
+        let nY = p.y / imgDimensions.h;
+        if (settings.flipX) nX = 1 - nX;
+        if (settings.flipY) nY = 1 - nY;
+        return { x: placeX + nX * placeW, y: placeY + nY * placeH };
+    };
+
+    const mmToPixel = (mmX: number, mmY: number): Point => {
+        let nX = (mmX - placeX) / placeW;
+        let nY = (mmY - placeY) / placeH;
+        if (settings.flipX) nX = 1 - nX;
+        if (settings.flipY) nY = 1 - nY;
+        return { x: nX * imgDimensions.w, y: nY * imgDimensions.h };
+    };
+
+    const pStart = getWorkspaceMM(path[0]);
+    const pEnd = getWorkspaceMM(path[path.length - 1]);
+    const dStartCenter = Math.sqrt((pStart.x - cx)**2 + (pStart.y - cy)**2);
+    const dEndCenter = Math.sqrt((pEnd.x - cx)**2 + (pEnd.y - cy)**2);
+
+    if (settings.pathStartPreference === 'center') {
+        if (dEndCenter < dStartCenter) path.reverse();
+    } else if (settings.pathStartPreference === 'edge') {
+        if (dEndCenter > dStartCenter) path.reverse();
+    } else if (settings.pathEndPreference === 'center') {
+        if (dStartCenter < dEndCenter) path.reverse();
+    } else if (settings.pathEndPreference === 'edge') {
+        if (dStartCenter > dEndCenter) path.reverse();
+    }
+
+    if (settings.pathStartPreference === 'center') {
+        path.unshift({ ...mmToPixel(cx, cy), isJump: true });
+    } else if (settings.pathStartPreference === 'edge') {
+        const startPoint = getWorkspaceMM(path[0]);
+        const angle = Math.atan2(startPoint.y - cy, startPoint.x - cx);
+        const radius = Math.max(settings.scaleX, settings.scaleY);
+        path.unshift({ ...mmToPixel(cx + Math.cos(angle) * radius, cy + Math.sin(angle) * radius), isJump: true });
+    }
+
+    if (settings.pathEndPreference === 'center') {
+        path.push(mmToPixel(cx, cy));
+    } else if (settings.pathEndPreference === 'edge') {
+        const finalP = getWorkspaceMM(path[path.length - 1]);
+        const angle = Math.atan2(finalP.y - cy, finalP.x - cx);
+        const radius = Math.max(settings.scaleX, settings.scaleY);
+        path.push(mmToPixel(cx + Math.cos(angle) * radius, cy + Math.sin(angle) * radius));
+    }
+
+    return path;
+  }, [processedPath, settings, imgDimensions]);
+
   const drawCanvas = useCallback(() => {
     const canvas = canvasRef.current;
     const container = containerRef.current;
@@ -242,13 +302,14 @@ const App: React.FC = () => {
         ctx.fillRect(Number(hx)-handleSize/2, Number(hy)-handleSize/2, handleSize, handleSize);
     });
 
-    if (processedPath.length > 0 && imgDimensions.w > 0 && imgDimensions.h > 0) {
+    const finalPath = getExportPath();
+    if (finalPath.length > 0 && imgDimensions.w > 0 && imgDimensions.h > 0) {
         ctx.beginPath();
         ctx.lineWidth = 1.2 * pixelWidth;
         ctx.strokeStyle = '#38bdf8';
-        const maxIdx = Math.floor((Math.max(0, Math.min(100, simProgress))/100) * processedPath.length);
+        const maxIdx = Math.floor((Math.max(0, Math.min(100, simProgress))/100) * finalPath.length);
         for (let i = 0; i < maxIdx; i++) {
-            const p = processedPath[i];
+            const p = finalPath[i];
             
             let normX = p.x / imgDimensions.w;
             let normY = p.y / imgDimensions.h;
@@ -265,8 +326,8 @@ const App: React.FC = () => {
         }
         ctx.stroke();
 
-        if (maxIdx > 0 && maxIdx <= processedPath.length) {
-            const last = processedPath[maxIdx-1];
+        if (maxIdx > 0 && maxIdx <= finalPath.length) {
+            const last = finalPath[maxIdx-1];
             let lNormX = last.x / imgDimensions.w;
             let lNormY = last.y / imgDimensions.h;
             if (settings.flipX) lNormX = 1 - lNormX;
@@ -279,7 +340,7 @@ const App: React.FC = () => {
         }
     }
     ctx.restore();
-  }, [processedPath, settings, imgDimensions, simProgress, zoom, pan]);
+  }, [getExportPath, settings, imgDimensions, simProgress, zoom, pan]);
 
   useEffect(() => { drawCanvas(); }, [drawCanvas]);
 
@@ -416,66 +477,6 @@ const App: React.FC = () => {
     link.href = url;
     link.download = filename;
     link.click();
-  };
-
-  const getExportPath = (): Point[] => {
-    if (processedPath.length < 2) return processedPath;
-    
-    let path = [...processedPath];
-    const { x: placeX, y: placeY, width: placeW, height: placeH } = settings.imagePlacement;
-    const cx = settings.scaleX / 2;
-    const cy = settings.scaleY / 2;
-
-    const getWorkspaceMM = (p: Point) => {
-        let nX = p.x / imgDimensions.w;
-        let nY = p.y / imgDimensions.h;
-        if (settings.flipX) nX = 1 - nX;
-        if (settings.flipY) nY = 1 - nY;
-        return { x: placeX + nX * placeW, y: placeY + nY * placeH };
-    };
-
-    const mmToPixel = (mmX: number, mmY: number): Point => {
-        let nX = (mmX - placeX) / placeW;
-        let nY = (mmY - placeY) / placeH;
-        if (settings.flipX) nX = 1 - nX;
-        if (settings.flipY) nY = 1 - nY;
-        return { x: nX * imgDimensions.w, y: nY * imgDimensions.h };
-    };
-
-    const pStart = getWorkspaceMM(path[0]);
-    const pEnd = getWorkspaceMM(path[path.length - 1]);
-    const dStartCenter = Math.sqrt((pStart.x - cx)**2 + (pStart.y - cy)**2);
-    const dEndCenter = Math.sqrt((pEnd.x - cx)**2 + (pEnd.y - cy)**2);
-
-    if (settings.pathStartPreference === 'center') {
-        if (dEndCenter < dStartCenter) path.reverse();
-    } else if (settings.pathStartPreference === 'edge') {
-        if (dEndCenter > dStartCenter) path.reverse();
-    } else if (settings.pathEndPreference === 'center') {
-        if (dStartCenter < dEndCenter) path.reverse();
-    } else if (settings.pathEndPreference === 'edge') {
-        if (dStartCenter > dEndCenter) path.reverse();
-    }
-
-    if (settings.pathStartPreference === 'center') {
-        path.unshift({ ...mmToPixel(cx, cy), isJump: true });
-    } else if (settings.pathStartPreference === 'edge') {
-        const startPoint = getWorkspaceMM(path[0]);
-        const angle = Math.atan2(startPoint.y - cy, startPoint.x - cx);
-        const radius = Math.max(settings.scaleX, settings.scaleY);
-        path.unshift({ ...mmToPixel(cx + Math.cos(angle) * radius, cy + Math.sin(angle) * radius), isJump: true });
-    }
-
-    if (settings.pathEndPreference === 'center') {
-        path.push(mmToPixel(cx, cy));
-    } else if (settings.pathEndPreference === 'edge') {
-        const finalP = getWorkspaceMM(path[path.length - 1]);
-        const angle = Math.atan2(finalP.y - cy, finalP.x - cx);
-        const radius = Math.max(settings.scaleX, settings.scaleY);
-        path.push(mmToPixel(cx + Math.cos(angle) * radius, cy + Math.sin(angle) * radius));
-    }
-
-    return path;
   };
 
   const handleDownloadGCode = () => {
@@ -628,6 +629,26 @@ const App: React.FC = () => {
                     <div className="flex justify-between text-[10px] text-slate-500 uppercase font-bold"><span>Sensitivity</span><span>{settings.threshold}</span></div>
                     <input type="range" min="50" max="250" value={settings.threshold} onChange={e => setSettings({...settings, threshold: Number(e.target.value)})} className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-sky-500" />
                 </div>
+                {settings.processingMode === 'fill' && (
+                  <div className="space-y-3 mt-3 border-t border-slate-800 pt-3">
+                      <div>
+                         <label className="text-[10px] text-slate-500 font-bold uppercase block mb-1">Fill Style</label>
+                         <select 
+                           value={settings.fillStyle}
+                           onChange={(e) => setSettings({...settings, fillStyle: e.target.value as any})}
+                           className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-2 text-[10px] text-slate-300 focus:outline-none focus:border-sky-500"
+                         >
+                           <option value="contour">Artistic Contour (Spiral)</option>
+                           <option value="linear">Elliptical Hatch</option>
+                           <option value="scribble">Scribble</option>
+                         </select>
+                      </div>
+                      <div className="space-y-1">
+                          <div className="flex justify-between text-[10px] text-slate-500 uppercase font-bold"><span>Fill Density</span><span>{settings.fillSpacing}</span></div>
+                          <input type="range" min="2" max="15" step="1" value={settings.fillSpacing} onChange={e => setSettings({...settings, fillSpacing: Number(e.target.value)})} className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-sky-500" />
+                      </div>
+                  </div>
+                )}
              </div>
           </div>
         </div>
@@ -699,6 +720,14 @@ const App: React.FC = () => {
                         <span className="text-sky-400">{Math.round(simProgress)}%</span>
                     </div>
                     <input type="range" min="0" max="100" step="0.1" value={simProgress} onChange={e => setSimProgress(Number(e.target.value))} className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-sky-500" />
+                </div>
+
+                <div className="flex-1 min-w-[80px] max-w-[120px] pl-6 border-l border-slate-800">
+                    <div className="flex justify-between text-[10px] text-slate-400 font-black tracking-widest uppercase mb-2">
+                        <span>Speed</span>
+                        <span className="text-sky-400">{simSpeed.toFixed(1)}x</span>
+                    </div>
+                    <input type="range" min="0.1" max="5" step="0.1" value={simSpeed} onChange={e => setSimSpeed(Number(e.target.value))} className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-sky-500" />
                 </div>
             </div>
         )}
