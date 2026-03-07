@@ -68,7 +68,10 @@ const App: React.FC = () => {
     pathStartPreference: 'original',
     pathEndPreference: 'original',
     flipX: false,
-    flipY: false
+    flipY: false,
+    thrFlipX: false,
+    thrFlipY: false,
+    thrSwapXY: false
   });
 
   const [aiMeta, setAiMeta] = useState<AnalysisResult>({
@@ -611,6 +614,36 @@ const App: React.FC = () => {
                          <option value="edge">Outside (Edge)</option>
                        </select>
                     </div>
+                </div>
+
+                <div className="p-3 bg-slate-950 border border-slate-800 rounded-lg space-y-3">
+                    <label className="text-[10px] text-slate-500 font-bold uppercase block mb-1 flex items-center gap-1">
+                      <WrenchScrewdriverIcon className="w-3 h-3 text-sky-500" /> Export Calibration
+                    </label>
+                    <div className="grid grid-cols-3 gap-1">
+                      <button 
+                        onClick={() => setSettings({...settings, thrFlipX: !settings.thrFlipX})}
+                        className={`py-1.5 rounded border text-[9px] font-bold transition-all ${settings.thrFlipX ? 'bg-amber-600 border-amber-400 text-white' : 'bg-slate-900 border-slate-700 text-slate-400'}`}
+                        title="Invert X in export"
+                      >
+                        INV X
+                      </button>
+                      <button 
+                        onClick={() => setSettings({...settings, thrFlipY: !settings.thrFlipY})}
+                        className={`py-1.5 rounded border text-[9px] font-bold transition-all ${settings.thrFlipY ? 'bg-amber-600 border-amber-400 text-white' : 'bg-slate-900 border-slate-700 text-slate-400'}`}
+                        title="Invert Y in export"
+                      >
+                        INV Y
+                      </button>
+                      <button 
+                        onClick={() => setSettings({...settings, thrSwapXY: !settings.thrSwapXY})}
+                        className={`py-1.5 rounded border text-[9px] font-bold transition-all ${settings.thrSwapXY ? 'bg-amber-600 border-amber-400 text-white' : 'bg-slate-900 border-slate-700 text-slate-400'}`}
+                        title="Swap X and Y in export"
+                      >
+                        SWAP
+                      </button>
+                    </div>
+                    <p className="text-[9px] text-slate-500 italic">Use these if the table output is mirrored or rotated.</p>
                 </div>
              </div>
           </div>

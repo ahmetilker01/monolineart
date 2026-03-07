@@ -41,6 +41,9 @@ export interface GCodeSettings {
   pathEndPreference: PathEndPreference; // Preference for end point
   flipX: boolean; // Mirror X axis
   flipY: boolean; // Mirror Y axis
+  thrFlipX: boolean;
+  thrFlipY: boolean;
+  thrSwapXY: boolean;
 }
 
 export interface AnalysisResult {

@@ -482,16 +482,28 @@ export const generateGCode = (
     if (settings.flipX) normX = 1 - normX;
     if (settings.flipY) normY = 1 - normY;
 
-    const realX = (placeX + normX * placeW).toFixed(3);
-    // Standard CNC is bottom-left (0,0). Images are top-left. So we invert Y by default (1 - normY).
-    const realY = (placeY + (1 - normY) * placeH).toFixed(3);
+    let realX = placeX + normX * placeW;
+    let realY = placeY + normY * placeH;
+
+    // Apply Calibration
+    if (settings.thrFlipX) realX = settings.scaleX - realX;
+    if (settings.thrFlipY) realY = settings.scaleY - realY;
+    if (settings.thrSwapXY) {
+        const temp = realX;
+        realX = realY;
+        realY = temp;
+    }
+
+    const gX = realX.toFixed(3);
+    // Standard CNC is Y-up. Our realY is distance from top. So we use (scaleY - realY).
+    const gY = (settings.scaleY - realY).toFixed(3);
 
     if (i === 0 || p.isJump) {
         gcode += `M5 ; Pen Up\n`;
-        gcode += `G0 X${realX} Y${realY} F${settings.feedRate}\n`;
+        gcode += `G0 X${gX} Y${gY} F${settings.feedRate}\n`;
         gcode += `M3 S255 ; Pen Down\n`;
     } else {
-        gcode += `G1 X${realX} Y${realY}\n`;
+        gcode += `G1 X${gX} Y${gY}\n`;
     }
   }
 
@@ -530,11 +542,21 @@ export const generateTHR = (
     if (settings.flipX) normX = 1 - normX;
     if (settings.flipY) normY = 1 - normY;
     
-    const realX = placeX + normX * placeW;
-    const realY = placeY + (1 - normY) * placeH;
+    let realX = placeX + normX * placeW;
+    let realY = placeY + normY * placeH;
+
+    // Apply Calibration
+    if (settings.thrFlipX) realX = settings.scaleX - realX;
+    if (settings.thrFlipY) realY = settings.scaleY - realY;
+    if (settings.thrSwapXY) {
+        const temp = realX;
+        realX = realY;
+        realY = temp;
+    }
 
     const dx = realX - cx;
-    const dy = realY - cy;
+    // Standard THR is Y-up. Our realY is distance from top. So we use (cy - realY).
+    const dy = cy - realY;
 
     const rho = Math.sqrt(dx * dx + dy * dy) / maxRadius;
     const theta = Math.atan2(dy, dx); 
