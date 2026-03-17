@@ -496,8 +496,8 @@ const App: React.FC = () => {
 
   return (
     <div className="h-screen w-screen flex flex-col md:flex-row bg-slate-950 overflow-hidden font-sans">
-      <aside className="w-full md:w-80 bg-slate-900 border-r border-slate-800 flex flex-col h-full overflow-y-auto shadow-2xl z-10">
-        <div className="p-6 border-b border-slate-800">
+      <aside className="w-full md:w-80 bg-slate-900 border-t md:border-t-0 md:border-r border-slate-800 flex flex-col flex-1 md:flex-none md:h-full overflow-y-auto shadow-2xl z-10 order-2 md:order-1">
+        <div className="p-6 border-b border-slate-800 shrink-0">
           <h1 className="text-xl font-black text-sky-400 tracking-tight">MonoLine Art</h1>
           <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Workspace & Routing</p>
         </div>
@@ -704,7 +704,7 @@ const App: React.FC = () => {
 
       <main 
         ref={containerRef} 
-        className="flex-1 bg-black relative overflow-hidden touch-none" 
+        className="h-[50vh] md:h-full md:flex-1 shrink-0 bg-black relative overflow-hidden touch-none order-1 md:order-2" 
         onMouseMove={handleMouseMove} 
         onMouseUp={() => setDragging(null)}
         onMouseLeave={() => setDragging(null)}
