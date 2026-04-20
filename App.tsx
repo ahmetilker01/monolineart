@@ -372,19 +372,20 @@ const App: React.FC = () => {
     return { mx: lx / baseScale, my: ly / baseScale, baseScale };
   };
 
-  const handleMouseDown = (e: React.MouseEvent) => {
+  const startInteraction = (clientX: number, clientY: number, isRightClick: boolean = false, isTouch: boolean = false) => {
     if (!imageSrc) return;
-    const { mx, my, baseScale } = getWorkspaceCoords(e.clientX, e.clientY);
+    const { mx, my, baseScale } = getWorkspaceCoords(clientX, clientY);
 
-    if (e.button === 1 || e.button === 2) {
+    if (isRightClick) {
       setDragging({ type: 'pan' });
-      setDragStart({ x: e.clientX, y: e.clientY });
+      setDragStart({ x: clientX, y: clientY });
       setStartPan({ ...pan });
       return;
     }
 
     const { x, y, width: w, height: h } = settings.imagePlacement;
-    const handleDist = 12 / (baseScale * zoom);
+    // Larger handle area for touch
+    const handleDist = (isTouch ? 24 : 12) / (baseScale * zoom);
 
     if (Math.abs(mx - x) < handleDist && Math.abs(my - y) < handleDist) setDragging({ type: 'resize', corner: 'tl' });
     else if (Math.abs(mx - (x+w)) < handleDist && Math.abs(my - y) < handleDist) setDragging({ type: 'resize', corner: 'tr' });
@@ -393,25 +394,25 @@ const App: React.FC = () => {
     else if (mx >= x && mx <= x+w && my >= y && my <= y+h) setDragging({ type: 'move' });
     else setDragging({ type: 'pan' });
 
-    setDragStart({ x: e.clientX, y: e.clientY });
+    setDragStart({ x: clientX, y: clientY });
     setStartPlacement({ ...settings.imagePlacement });
     setStartPan({ ...pan });
   };
 
-  const handleMouseMove = (e: React.MouseEvent) => {
+  const moveInteraction = (clientX: number, clientY: number) => {
     if (!dragging) return;
     
     if (dragging.type === 'pan') {
-      const dx = (e.clientX - dragStart.x) / zoom;
-      const dy = (e.clientY - dragStart.y) / zoom;
+      const dx = (clientX - dragStart.x) / zoom;
+      const dy = (clientY - dragStart.y) / zoom;
       setPan({ x: startPan.x + dx, y: startPan.y + dy });
       return;
     }
 
     if (!startPlacement) return;
-    const { baseScale } = getWorkspaceCoords(e.clientX, e.clientY);
-    const dx = (e.clientX - dragStart.x) / (baseScale * zoom);
-    const dy = (e.clientY - dragStart.y) / (baseScale * zoom);
+    const { baseScale } = getWorkspaceCoords(clientX, clientY);
+    const dx = (clientX - dragStart.x) / (baseScale * zoom);
+    const dy = (clientY - dragStart.y) / (baseScale * zoom);
 
     let newP = { ...startPlacement };
     if (dragging.type === 'move') {
@@ -425,6 +426,14 @@ const App: React.FC = () => {
     newP.width = Math.max(5, newP.width);
     newP.height = Math.max(5, newP.height);
     setSettings(s => ({ ...s, imagePlacement: newP }));
+  };
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    startInteraction(e.clientX, e.clientY, e.button === 1 || e.button === 2);
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    moveInteraction(e.clientX, e.clientY);
   };
 
   const handleWheel = (e: React.WheelEvent) => {
@@ -443,9 +452,7 @@ const App: React.FC = () => {
         lastTouchDist.current = d;
     } else if (e.touches.length === 1) {
         const touch = e.touches[0];
-        setDragStart({ x: touch.clientX, y: touch.clientY });
-        setStartPan({ ...pan });
-        setDragging({ type: 'pan' });
+        startInteraction(touch.clientX, touch.clientY, false, true);
     }
   };
 
@@ -456,11 +463,10 @@ const App: React.FC = () => {
         const delta = d / lastTouchDist.current;
         setZoom(prev => Math.min(Math.max(0.05, prev * delta), 20));
         lastTouchDist.current = d;
-    } else if (e.touches.length === 1 && dragging?.type === 'pan') {
+    } else if (e.touches.length === 1 && dragging) {
+        e.preventDefault();
         const touch = e.touches[0];
-        const dx = (touch.clientX - dragStart.x) / zoom;
-        const dy = (touch.clientY - dragStart.y) / zoom;
-        setPan({ x: startPan.x + dx, y: startPan.y + dy });
+        moveInteraction(touch.clientX, touch.clientY);
     }
   };
 
