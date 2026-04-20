@@ -555,7 +555,7 @@ const App: React.FC = () => {
   return (
     <div className="h-screen w-screen flex flex-col md:flex-row bg-slate-950 overflow-hidden font-sans">
       <aside className="w-full md:w-80 bg-slate-900 border-t md:border-t-0 md:border-r border-slate-800 flex flex-col flex-1 md:flex-none md:h-full overflow-y-auto shadow-2xl z-20 order-2 md:order-1">
-        <div className="p-4 border-b border-slate-800 shrink-0 bg-slate-900/80 backdrop-blur sticky top-0 z-30">
+        <div className="p-4 border-b border-slate-800 shrink-0 bg-slate-900 overflow-hidden">
           <div className="flex items-center justify-between mb-3">
              <h1 className="text-xl font-black text-sky-400 tracking-tight">MonoLine Art</h1>
              <SparklesIcon className="w-5 h-5 text-amber-500 animate-pulse" />
@@ -915,7 +915,7 @@ const App: React.FC = () => {
           </div>
         )}
 
-        <div className="p-4 bg-slate-900 border-t border-slate-800 space-y-2 sticky bottom-0 z-30">
+        <div className="p-4 bg-slate-900 border-t border-slate-800 space-y-2">
           <button onClick={handleDownloadGCode} disabled={(activeTab === 'image' && !imageSrc) || isProcessing} className="w-full py-3 bg-sky-600 hover:bg-sky-500 disabled:bg-slate-800 text-white text-[10px] font-black rounded-xl transition-all flex items-center justify-center gap-2 shadow-xl shadow-sky-900/20 active:scale-95">
             <ArrowDownTrayIcon className="w-4 h-4" /> EXPORT G-CODE
           </button>
@@ -927,7 +927,7 @@ const App: React.FC = () => {
 
       <main 
         ref={containerRef} 
-        className="h-[50vh] md:h-full md:flex-1 shrink-0 bg-black relative overflow-hidden touch-none order-1 md:order-2" 
+        className="h-[40vh] md:h-full md:flex-1 shrink-0 bg-black relative overflow-hidden touch-none order-1 md:order-2" 
         onMouseMove={handleMouseMove} 
         onMouseUp={() => setDragging(null)}
         onMouseLeave={() => setDragging(null)}
