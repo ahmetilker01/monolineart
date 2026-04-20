@@ -1,8 +1,8 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { processImageToSingleLine, generateGCode, generateTHR } from './utils/pathAlgorithms';
+import { processImageToSingleLine, generateGCode, generateTHR, generatePattern } from './utils/pathAlgorithms';
 import { analyzeImageForCNC } from './services/geminiService';
-import { Point, GCodeSettings, AnalysisResult, WorkspaceType, ImagePlacement, PathStartPreference, PathEndPreference } from './types';
+import { Point, GCodeSettings, AnalysisResult, WorkspaceType, ImagePlacement, PathStartPreference, PathEndPreference, PatternSettings, PatternType } from './types';
 import { 
   CloudArrowUpIcon, 
   ArrowDownTrayIcon, 
@@ -19,12 +19,17 @@ import {
   FlagIcon,
   Squares2X2Icon,
   ArrowsRightLeftIcon,
-  ArrowsUpDownIcon
+  ArrowsUpDownIcon,
+  PhotoIcon,
+  BeakerIcon,
+  SparklesIcon
 } from '@heroicons/react/24/outline';
 
 const App: React.FC = () => {
+  const [activeTab, setActiveTab] = useState<'image' | 'pattern'>('image');
   const [imageSrc, setImageSrc] = useState<string | null>(null);
   const [processedPath, setProcessedPath] = useState<Point[]>([]);
+  const [patternPath, setPatternPath] = useState<Point[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [imgDimensions, setImgDimensions] = useState({ w: 0, h: 0 });
   
@@ -49,9 +54,9 @@ const App: React.FC = () => {
 
   const [settings, setSettings] = useState<GCodeSettings>({
     feedRate: 1500,
-    scaleX: 200, 
-    scaleY: 200, 
-    workspaceType: 'rectangular',
+    scaleX: 601, 
+    scaleY: 601, 
+    workspaceType: 'circular',
     invert: false,
     threshold: 120, 
     pointDensity: 1.5, 
@@ -64,7 +69,7 @@ const App: React.FC = () => {
     fillStyle: 'contour',
     fillSpacing: 4,
     fillAngle: 0,
-    imagePlacement: { x: 50, y: 50, width: 100, height: 100 },
+    imagePlacement: { x: 150, y: 150, width: 300, height: 300 },
     pathStartPreference: 'original',
     pathEndPreference: 'original',
     flipX: false,
@@ -72,6 +77,25 @@ const App: React.FC = () => {
     thrFlipX: false,
     thrFlipY: false,
     thrSwapXY: false
+  });
+
+  const [patternSettings, setPatternSettings] = useState<PatternSettings>({
+    type: 'spirograph',
+    loops: 10,
+    points: 100,
+    rotation: 0,
+    scale: 0.8,
+    outerRadius: 100,
+    innerRadius: 40,
+    penOffset: 60,
+    growth: 5,
+    freqX: 3,
+    freqY: 2,
+    wobbleAmplitude: 0,
+    wobbleFrequency: 10,
+    mirrorCount: 1,
+    offsetX: 0,
+    offsetY: 0
   });
 
   const [aiMeta, setAiMeta] = useState<AnalysisResult>({
@@ -105,6 +129,18 @@ const App: React.FC = () => {
       }));
     }
   }, [imgDimensions, settings.scaleX, settings.scaleY]);
+
+  // Auto-generate pattern
+  useEffect(() => {
+    if (activeTab === 'pattern') {
+      const path = generatePattern(patternSettings, { w: settings.scaleX, h: settings.scaleY });
+      setPatternPath(path);
+      // Reset simulation when pattern changes
+      setSimProgress(100);
+    }
+  }, [patternSettings, settings.scaleX, settings.scaleY, activeTab]);
+
+  const currentPath = activeTab === 'image' ? processedPath : patternPath;
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -156,7 +192,7 @@ const App: React.FC = () => {
   useEffect(() => { if (imageSrc) processImage(); }, [processImage]);
 
   useEffect(() => {
-    if (isPlaying && processedPath.length > 0) {
+    if (isPlaying && currentPath.length > 0) {
       const step = () => {
         setSimProgress(prev => {
           if (prev >= 100) { setIsPlaying(false); return 100; }
@@ -167,9 +203,10 @@ const App: React.FC = () => {
       animationRef.current = requestAnimationFrame(step);
     } else if (animationRef.current) cancelAnimationFrame(animationRef.current);
     return () => { if (animationRef.current) cancelAnimationFrame(animationRef.current); };
-  }, [isPlaying, processedPath.length, simSpeed]);
+  }, [isPlaying, currentPath.length, simSpeed]);
 
   const getExportPath = useCallback((): Point[] => {
+    if (activeTab === 'pattern') return patternPath;
     if (processedPath.length < 2) return processedPath;
     
     let path = [...processedPath];
@@ -178,40 +215,44 @@ const App: React.FC = () => {
     const cy = settings.scaleY / 2;
 
     const getWorkspaceMM = (p: Point) => {
-        let nX = p.x / imgDimensions.w;
-        let nY = p.y / imgDimensions.h;
+        let nX = p.x / (imgDimensions.w || 1);
+        let nY = p.y / (imgDimensions.h || 1);
         if (settings.flipX) nX = 1 - nX;
         if (settings.flipY) nY = 1 - nY;
         return { x: placeX + nX * placeW, y: placeY + nY * placeH };
     };
 
     const mmToPixel = (mmX: number, mmY: number): Point => {
-        let nX = (mmX - placeX) / placeW;
-        let nY = (mmY - placeY) / placeH;
+        let nX = (mmX - placeX) / (placeW || 1);
+        let nY = (mmY - placeY) / (placeH || 1);
         if (settings.flipX) nX = 1 - nX;
         if (settings.flipY) nY = 1 - nY;
-        return { x: nX * imgDimensions.w, y: nY * imgDimensions.h };
+        return { x: nX * (imgDimensions.w || 1), y: nY * (imgDimensions.h || 1) };
     };
 
-    const pStart = getWorkspaceMM(path[0]);
-    const pEnd = getWorkspaceMM(path[path.length - 1]);
+    const mmPath = path.map(p => getWorkspaceMM(p));
+    const pStart = mmPath[0];
+    const pEnd = mmPath[mmPath.length - 1];
     const dStartCenter = Math.sqrt((pStart.x - cx)**2 + (pStart.y - cy)**2);
     const dEndCenter = Math.sqrt((pEnd.x - cx)**2 + (pEnd.y - cy)**2);
 
+    let reversed = false;
     if (settings.pathStartPreference === 'center') {
-        if (dEndCenter < dStartCenter) path.reverse();
+        if (dEndCenter < dStartCenter) reversed = true;
     } else if (settings.pathStartPreference === 'edge') {
-        if (dEndCenter > dStartCenter) path.reverse();
+        if (dEndCenter > dStartCenter) reversed = true;
     } else if (settings.pathEndPreference === 'center') {
-        if (dStartCenter < dEndCenter) path.reverse();
+        if (dStartCenter < dEndCenter) reversed = true;
     } else if (settings.pathEndPreference === 'edge') {
-        if (dStartCenter > dEndCenter) path.reverse();
+        if (dStartCenter > dEndCenter) reversed = true;
     }
+    
+    if (reversed) { path.reverse(); mmPath.reverse(); }
 
     if (settings.pathStartPreference === 'center') {
         path.unshift({ ...mmToPixel(cx, cy), isJump: true });
     } else if (settings.pathStartPreference === 'edge') {
-        const startPoint = getWorkspaceMM(path[0]);
+        const startPoint = mmPath[0];
         const angle = Math.atan2(startPoint.y - cy, startPoint.x - cx);
         const radius = Math.max(settings.scaleX, settings.scaleY);
         path.unshift({ ...mmToPixel(cx + Math.cos(angle) * radius, cy + Math.sin(angle) * radius), isJump: true });
@@ -220,14 +261,14 @@ const App: React.FC = () => {
     if (settings.pathEndPreference === 'center') {
         path.push(mmToPixel(cx, cy));
     } else if (settings.pathEndPreference === 'edge') {
-        const finalP = getWorkspaceMM(path[path.length - 1]);
+        const finalP = mmPath[mmPath.length - 1];
         const angle = Math.atan2(finalP.y - cy, finalP.x - cx);
         const radius = Math.max(settings.scaleX, settings.scaleY);
         path.push(mmToPixel(cx + Math.cos(angle) * radius, cy + Math.sin(angle) * radius));
     }
 
     return path;
-  }, [processedPath, settings, imgDimensions]);
+  }, [processedPath, patternPath, activeTab, settings, imgDimensions]);
 
   const drawCanvas = useCallback(() => {
     const canvas = canvasRef.current;
@@ -281,69 +322,80 @@ const App: React.FC = () => {
     for (let i = 0; i <= sY; i += 20) { ctx.moveTo(0, i); ctx.lineTo(sX, i); }
     ctx.stroke();
 
-    // Origin Mark (Center for circular, Bottom-Left for Rect)
+    // Origin Mark
+    ctx.fillStyle = '#f43f5e';
     if (settings.workspaceType === 'circular') {
-        ctx.fillStyle = '#f43f5e';
         ctx.beginPath(); ctx.arc(sX/2, sY/2, 3 * pixelWidth, 0, Math.PI*2); ctx.fill();
     } else {
-        ctx.fillStyle = '#f43f5e';
         ctx.beginPath(); ctx.arc(0, sY, 3 * pixelWidth, 0, Math.PI*2); ctx.fill();
     }
 
-    const { x, y, width: w, height: h } = settings.imagePlacement;
-    ctx.strokeStyle = '#38bdf8';
-    ctx.lineWidth = pixelWidth;
-    
-    const dashLen = 5 * pixelWidth;
-    if (isFinite(dashLen) && dashLen > 0) ctx.setLineDash([dashLen, dashLen]);
-    ctx.strokeRect(x, y, w, h);
-    ctx.setLineDash([]);
+    if (activeTab === 'image') {
+      const { x, y, width: w, height: h } = settings.imagePlacement;
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = pixelWidth;
+      const dashLen = 5 * pixelWidth;
+      if (isFinite(dashLen) && dashLen > 0) ctx.setLineDash([dashLen, dashLen]);
+      ctx.strokeRect(x, y, w, h);
+      ctx.setLineDash([]);
 
-    const handleSize = 8 * pixelWidth;
-    ctx.fillStyle = '#38bdf8';
-    [['tl', x, y], ['tr', x+w, y], ['bl', x, y+h], ['br', x+w, y+h]].forEach(([_id, hx, hy]) => {
-        ctx.fillRect(Number(hx)-handleSize/2, Number(hy)-handleSize/2, handleSize, handleSize);
-    });
+      const handleSize = 8 * pixelWidth;
+      ctx.fillStyle = '#38bdf8';
+      [['tl', x, y], ['tr', x+w, y], ['bl', x, y+h], ['br', x+w, y+h]].forEach(([_id, hx, hy]) => {
+          ctx.fillRect(Number(hx)-handleSize/2, Number(hy)-handleSize/2, handleSize, handleSize);
+      });
+    }
 
     const finalPath = getExportPath();
-    if (finalPath.length > 0 && imgDimensions.w > 0 && imgDimensions.h > 0) {
+    if (finalPath.length > 0) {
         ctx.beginPath();
         ctx.lineWidth = 1.2 * pixelWidth;
         ctx.strokeStyle = '#38bdf8';
         const maxIdx = Math.floor((Math.max(0, Math.min(100, simProgress))/100) * finalPath.length);
+        
         for (let i = 0; i < maxIdx; i++) {
             const p = finalPath[i];
-            
-            let normX = p.x / imgDimensions.w;
-            let normY = p.y / imgDimensions.h;
+            let wx, wy;
+            if (activeTab === 'image') {
+                let nX = p.x / (imgDimensions.w || 1);
+                let nY = p.y / (imgDimensions.h || 1);
+                if (settings.flipX) nX = 1 - nX;
+                if (settings.flipY) nY = 1 - nY;
+                const { x: placeX, y: placeY, width: placeW, height: placeH } = settings.imagePlacement;
+                wx = placeX + nX * placeW;
+                wy = placeY + nY * placeH;
+            } else {
+                wx = p.x;
+                wy = p.y;
+            }
 
-            // Mirror preview logic to match export settings
-            if (settings.flipX) normX = 1 - normX;
-            if (settings.flipY) normY = 1 - normY;
-
-            const px = x + normX * w;
-            const py = y + normY * h;
-            
-            if (i === 0 || p.isJump) ctx.moveTo(px, py);
-            else ctx.lineTo(px, py);
+            if (i === 0 || p.isJump) ctx.moveTo(wx, wy);
+            else ctx.lineTo(wx, wy);
         }
         ctx.stroke();
 
-        if (maxIdx > 0 && maxIdx <= finalPath.length) {
+        if (maxIdx > 0) {
             const last = finalPath[maxIdx-1];
-            let lNormX = last.x / imgDimensions.w;
-            let lNormY = last.y / imgDimensions.h;
-            if (settings.flipX) lNormX = 1 - lNormX;
-            if (settings.flipY) lNormY = 1 - lNormY;
-            
+            let wx, wy;
+            if (activeTab === 'image') {
+                let nX = last.x / (imgDimensions.w || 1);
+                let nY = last.y / (imgDimensions.h || 1);
+                if (settings.flipX) nX = 1 - nX;
+                if (settings.flipY) nY = 1 - nY;
+                const { x: placeX, y: placeY, width: placeW, height: placeH } = settings.imagePlacement;
+                wx = placeX + nX * placeW;
+                wy = placeY + nY * placeH;
+            } else {
+                wx = last.x;
+                wy = last.y;
+            }
             ctx.fillStyle = '#facc15';
-            ctx.beginPath(); 
-            ctx.arc(x + lNormX * w, y + lNormY * h, 3 * pixelWidth, 0, Math.PI*2); 
-            ctx.fill();
+            ctx.beginPath(); ctx.arc(wx, wy, 4 * pixelWidth, 0, Math.PI*2); ctx.fill();
         }
     }
+
     ctx.restore();
-  }, [getExportPath, settings, imgDimensions, simProgress, zoom, pan]);
+  }, [getExportPath, settings, imgDimensions, simProgress, zoom, pan, activeTab]);
 
   useEffect(() => { drawCanvas(); }, [drawCanvas]);
 
@@ -490,36 +542,238 @@ const App: React.FC = () => {
 
   const handleDownloadGCode = () => {
     const exportPath = getExportPath();
-    const gcode = generateGCode(exportPath, imgDimensions.w, imgDimensions.h, settings, aiMeta);
+    const gcode = generateGCode(exportPath, activeTab === 'image' ? imgDimensions.w : settings.scaleX, activeTab === 'image' ? imgDimensions.h : settings.scaleY, settings, aiMeta, activeTab === 'pattern');
     downloadFile(gcode, `${aiMeta.title.replace(/\s/g, '_')}.gcode`);
   };
 
   const handleDownloadTHR = () => {
     const exportPath = getExportPath();
-    const thr = generateTHR(exportPath, imgDimensions.w, imgDimensions.h, settings);
+    const thr = generateTHR(exportPath, activeTab === 'image' ? imgDimensions.w : settings.scaleX, activeTab === 'image' ? imgDimensions.h : settings.scaleY, settings, activeTab === 'pattern');
     downloadFile(thr, `${aiMeta.title.replace(/\s/g, '_')}.thr`);
   };
 
   return (
     <div className="h-screen w-screen flex flex-col md:flex-row bg-slate-950 overflow-hidden font-sans">
-      <aside className="w-full md:w-80 bg-slate-900 border-t md:border-t-0 md:border-r border-slate-800 flex flex-col flex-1 md:flex-none md:h-full overflow-y-auto shadow-2xl z-10 order-2 md:order-1">
-        <div className="p-6 border-b border-slate-800 shrink-0">
-          <h1 className="text-xl font-black text-sky-400 tracking-tight">MonoLine Art</h1>
-          <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Workspace & Routing</p>
+      <aside className="w-full md:w-80 bg-slate-900 border-t md:border-t-0 md:border-r border-slate-800 flex flex-col flex-1 md:flex-none md:h-full overflow-y-auto shadow-2xl z-20 order-2 md:order-1">
+        <div className="p-4 border-b border-slate-800 shrink-0 bg-slate-900/80 backdrop-blur sticky top-0 z-30">
+          <div className="flex items-center justify-between mb-3">
+             <h1 className="text-xl font-black text-sky-400 tracking-tight">MonoLine Art</h1>
+             <SparklesIcon className="w-5 h-5 text-amber-500 animate-pulse" />
+          </div>
+          
+          <div className="grid grid-cols-2 gap-1 p-1 bg-slate-950 rounded-lg border border-slate-800">
+             <button 
+               onClick={() => setActiveTab('image')}
+               className={`flex items-center justify-center gap-2 py-2 rounded-md text-[10px] font-bold transition-all ${activeTab === 'image' ? 'bg-sky-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
+             >
+               <PhotoIcon className="w-3 h-3" /> IMAGE LAB
+             </button>
+             <button 
+               onClick={() => setActiveTab('pattern')}
+               className={`flex items-center justify-center gap-2 py-2 rounded-md text-[10px] font-bold transition-all ${activeTab === 'pattern' ? 'bg-sky-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
+             >
+               <BeakerIcon className="w-3 h-3" /> PATTERN LAB
+             </button>
+          </div>
         </div>
 
         <div className="p-5 flex-1 space-y-6">
-          <div className="space-y-3">
-            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Upload Image</label>
-            <div 
-              onClick={() => fileInputRef.current?.click()} 
-              className="border-2 border-dashed border-slate-700 rounded-xl p-4 text-center cursor-pointer hover:bg-slate-800 hover:border-sky-500/50 transition-all group"
-            >
-              <CloudArrowUpIcon className="w-8 h-8 text-slate-600 group-hover:text-sky-500 mx-auto mb-1 transition-colors" />
-              <input ref={fileInputRef} type="file" className="hidden" onChange={handleImageUpload} />
-              <span className="text-xs text-slate-400 group-hover:text-slate-200">Select Image File</span>
+          {activeTab === 'image' ? (
+            <>
+              <div className="space-y-3">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Upload Image</label>
+                <div 
+                  onClick={() => fileInputRef.current?.click()} 
+                  className="border-2 border-dashed border-slate-700 rounded-xl p-4 text-center cursor-pointer hover:bg-slate-800 hover:border-sky-500/50 transition-all group"
+                >
+                  <CloudArrowUpIcon className="w-8 h-8 text-slate-600 group-hover:text-sky-500 mx-auto mb-1 transition-colors" />
+                  <input ref={fileInputRef} type="file" className="hidden" onChange={handleImageUpload} />
+                  <span className="text-xs text-slate-400 group-hover:text-slate-200">Select Image File</span>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                 <div className="flex items-center gap-2 pb-2 border-b border-slate-800">
+                    <PaintBrushIcon className="w-4 h-4 text-sky-500" />
+                    <h3 className="text-slate-200 text-sm font-semibold">Drawing Settings</h3>
+                 </div>
+                 <div className="space-y-4">
+                    <div className="grid grid-cols-3 gap-1 p-1 bg-slate-950 rounded-lg border border-slate-800">
+                        <button onClick={() => setSettings({...settings, processingMode: 'outline'})} className={`text-[10px] font-bold py-2 rounded-md transition-all ${settings.processingMode === 'outline' ? 'bg-sky-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}>OUTLINE</button>
+                        <button onClick={() => setSettings({...settings, processingMode: 'counter'})} className={`text-[10px] font-bold py-2 rounded-md transition-all ${settings.processingMode === 'counter' ? 'bg-sky-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}>COUNTER</button>
+                        <button onClick={() => setSettings({...settings, processingMode: 'fill'})} className={`text-[10px] font-bold py-2 rounded-md transition-all ${settings.processingMode === 'fill' ? 'bg-sky-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}>FILL</button>
+                    </div>
+                    <div className="space-y-1">
+                        <div className="flex justify-between text-[10px] text-slate-500 uppercase font-bold"><span>Sensitivity</span><span>{settings.threshold}</span></div>
+                        <input type="range" min="50" max="250" value={settings.threshold} onChange={e => setSettings({...settings, threshold: Number(e.target.value)})} className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-sky-500" />
+                    </div>
+                    {(settings.processingMode === 'fill' || settings.processingMode === 'counter') && (
+                      <div className="space-y-3 mt-3 border-t border-slate-800 pt-3">
+                          {settings.processingMode === 'fill' && (
+                            <div>
+                               <label className="text-[10px] text-slate-500 font-bold uppercase block mb-1">Fill Style</label>
+                               <select 
+                                 value={settings.fillStyle}
+                                 onChange={(e) => setSettings({...settings, fillStyle: e.target.value as any})}
+                                 className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-2 text-[10px] text-slate-300 focus:outline-none focus:border-sky-500"
+                               >
+                                 <option value="contour">Artistic Contour (Spiral)</option>
+                                 <option value="linear">Elliptical Hatch</option>
+                                 <option value="scribble">Scribble</option>
+                               </select>
+                            </div>
+                          )}
+                          <div className="space-y-1">
+                              <div className="flex justify-between text-[10px] text-slate-500 uppercase font-bold"><span>{settings.processingMode === 'counter' ? 'Offset Spacing' : 'Fill Density'}</span><span>{settings.fillSpacing}</span></div>
+                              <input type="range" min="2" max="15" step="1" value={settings.fillSpacing} onChange={e => setSettings({...settings, fillSpacing: Number(e.target.value)})} className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-sky-500" />
+                          </div>
+                      </div>
+                    )}
+                 </div>
+              </div>
+            </>
+          ) : (
+            <div className="space-y-6">
+               <div className="space-y-4">
+                  <div className="flex items-center gap-2 pb-2 border-b border-slate-800">
+                     <BeakerIcon className="w-4 h-4 text-amber-500" />
+                     <h3 className="text-slate-200 text-sm font-semibold">Generative Patterns</h3>
+                  </div>
+                  
+                  <div className="space-y-4">
+                    <div>
+                        <label className="text-[10px] text-slate-500 font-bold uppercase block mb-1">Pattern Type</label>
+                        <div className="grid grid-cols-2 gap-1 font-bold text-[9px]">
+                           {(['spirograph', 'lissajous', 'spiral', 'polygon', 'star'] as PatternType[]).map(t => (
+                              <button 
+                                key={t}
+                                onClick={() => setPatternSettings({...patternSettings, type: t})}
+                                className={`py-2 px-1 rounded uppercase tracking-tighter ${patternSettings.type === t ? 'bg-amber-600 text-white' : 'bg-slate-950 text-slate-500 border border-slate-800'}`}
+                              >
+                                {t}
+                              </button>
+                           ))}
+                        </div>
+                    </div>
+
+                    <div className="space-y-3 p-3 bg-slate-950 border border-slate-800 rounded-lg">
+                       <div className="space-y-1">
+                          <div className="flex justify-between text-[9px] text-slate-500 uppercase font-bold"><span>Loops / Cycles</span><span>{patternSettings.loops}</span></div>
+                          <input type="range" min="1" max="50" step="0.5" value={patternSettings.loops} onChange={e => setPatternSettings({...patternSettings, loops: Number(e.target.value)})} className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-amber-500" />
+                       </div>
+                       
+                       <div className="space-y-1">
+                          <div className="flex justify-between text-[9px] text-slate-500 uppercase font-bold"><span>Scale</span><span>{patternSettings.scale.toFixed(2)}</span></div>
+                          <input type="range" min="0.1" max="2" step="0.05" value={patternSettings.scale} onChange={e => setPatternSettings({...patternSettings, scale: Number(e.target.value)})} className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-amber-500" />
+                       </div>
+
+                       <div className="space-y-1">
+                          <div className="flex justify-between text-[9px] text-slate-500 uppercase font-bold"><span>Rotation</span><span>{patternSettings.rotation}°</span></div>
+                          <input type="range" min="0" max="360" step="1" value={patternSettings.rotation} onChange={e => setPatternSettings({...patternSettings, rotation: Number(e.target.value)})} className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-amber-500" />
+                       </div>
+                    </div>
+
+                    {patternSettings.type === 'spirograph' && (
+                       <div className="space-y-3 p-3 bg-slate-950 border border-slate-800 rounded-lg">
+                          <div className="space-y-1">
+                             <div className="flex justify-between text-[9px] text-slate-500 uppercase font-bold"><span>Outer Radius</span><span>{patternSettings.outerRadius}</span></div>
+                             <input type="range" min="10" max="300" value={patternSettings.outerRadius} onChange={e => setPatternSettings({...patternSettings, outerRadius: Number(e.target.value)})} className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-amber-500" />
+                          </div>
+                          <div className="space-y-1">
+                             <div className="flex justify-between text-[9px] text-slate-500 uppercase font-bold"><span>Inner Radius</span><span>{patternSettings.innerRadius}</span></div>
+                             <input type="range" min="1" max="300" value={patternSettings.innerRadius} onChange={e => setPatternSettings({...patternSettings, innerRadius: Number(e.target.value)})} className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-amber-500" />
+                          </div>
+                          <div className="space-y-1">
+                             <div className="flex justify-between text-[9px] text-slate-500 uppercase font-bold"><span>Pen Offset</span><span>{patternSettings.penOffset}</span></div>
+                             <input type="range" min="1" max="300" value={patternSettings.penOffset} onChange={e => setPatternSettings({...patternSettings, penOffset: Number(e.target.value)})} className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-amber-500" />
+                          </div>
+                       </div>
+                    )}
+
+                    {(patternSettings.type === 'lissajous') && (
+                       <div className="space-y-3 p-3 bg-slate-950 border border-slate-800 rounded-lg">
+                          <div className="space-y-1">
+                             <div className="flex justify-between text-[9px] text-slate-500 uppercase font-bold"><span>Freq X</span><span>{patternSettings.freqX}</span></div>
+                             <input type="range" min="1" max="20" step="0.1" value={patternSettings.freqX} onChange={e => setPatternSettings({...patternSettings, freqX: Number(e.target.value)})} className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-amber-500" />
+                          </div>
+                          <div className="space-y-1">
+                             <div className="flex justify-between text-[9px] text-slate-500 uppercase font-bold"><span>Freq Y</span><span>{patternSettings.freqY}</span></div>
+                             <input type="range" min="1" max="20" step="0.1" value={patternSettings.freqY} onChange={e => setPatternSettings({...patternSettings, freqY: Number(e.target.value)})} className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-amber-500" />
+                          </div>
+                       </div>
+                    )}
+
+                    {(patternSettings.type === 'spiral' || patternSettings.type === 'polygon' || patternSettings.type === 'star') && (
+                       <div className="space-y-3 p-3 bg-slate-950 border border-slate-800 rounded-lg">
+                          <div className="space-y-1">
+                             <div className="flex justify-between text-[9px] text-slate-500 uppercase font-bold">
+                                <span>{patternSettings.type === 'spiral' ? 'Growth Rate' : (patternSettings.type === 'star' ? 'Points' : 'Sides')}</span>
+                                <span>{patternSettings.growth}</span>
+                             </div>
+                             <input 
+                               type="range" 
+                               min={patternSettings.type === 'spiral' ? 0.1 : 3} 
+                               max={patternSettings.type === 'spiral' ? 10 : (patternSettings.type === 'star' ? 30 : 20)} 
+                               step={patternSettings.type === 'spiral' ? 0.1 : 1} 
+                               value={patternSettings.growth} 
+                               onChange={e => setPatternSettings({...patternSettings, growth: Number(e.target.value)})} 
+                               className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-amber-500" 
+                             />
+                          </div>
+                       </div>
+                    )}
+
+                    <div className="space-y-3 pt-4 border-t border-slate-800">
+                       <div className="flex items-center gap-2">
+                          <SparklesIcon className="w-3 h-3 text-amber-500" />
+                          <h3 className="text-slate-300 text-[10px] font-bold uppercase tracking-wider">Effects (Wobble)</h3>
+                       </div>
+                       <div className="space-y-3 p-3 bg-slate-950 border border-slate-800 rounded-lg">
+                          <div className="space-y-1">
+                             <div className="flex justify-between text-[9px] text-slate-500 uppercase font-bold"><span>Amplitude</span><span>{patternSettings.wobbleAmplitude}</span></div>
+                             <input type="range" min="0" max="20" step="0.5" value={patternSettings.wobbleAmplitude} onChange={e => setPatternSettings({...patternSettings, wobbleAmplitude: Number(e.target.value)})} className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-amber-500" />
+                          </div>
+                          <div className="space-y-1">
+                             <div className="flex justify-between text-[9px] text-slate-500 uppercase font-bold"><span>Frequency</span><span>{patternSettings.wobbleFrequency}</span></div>
+                             <input type="range" min="1" max="100" step="1" value={patternSettings.wobbleFrequency} onChange={e => setPatternSettings({...patternSettings, wobbleFrequency: Number(e.target.value)})} className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-amber-500" />
+                          </div>
+                       </div>
+                    </div>
+                    <div className="space-y-3 pt-4 border-t border-slate-800">
+                       <div className="flex items-center gap-2">
+                          <StarIcon className="w-3 h-3 text-amber-500" />
+                          <h3 className="text-slate-300 text-[10px] font-bold uppercase tracking-wider">Mirroring (Aynalama)</h3>
+                       </div>
+                       <div className="space-y-3 p-3 bg-slate-950 border border-slate-800 rounded-lg">
+                          <div className="space-y-1">
+                             <div className="flex justify-between text-[9px] text-slate-500 uppercase font-bold"><span>Radial Clones</span><span>{patternSettings.mirrorCount}</span></div>
+                             <input type="range" min="1" max="12" step="1" value={patternSettings.mirrorCount} onChange={e => setPatternSettings({...patternSettings, mirrorCount: Number(e.target.value)})} className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-amber-500" />
+                          </div>
+                          <p className="text-[9px] text-slate-500 italic">Repeats the pattern radially for "Snowflake" style effects.</p>
+                       </div>
+                    </div>
+
+                    <div className="space-y-3 pt-4 border-t border-slate-800">
+                       <div className="flex items-center gap-2">
+                          <MapPinIcon className="w-3 h-3 text-amber-500" />
+                          <h3 className="text-slate-300 text-[10px] font-bold uppercase tracking-wider">Positioning (Konumlandırma)</h3>
+                       </div>
+                       <div className="space-y-3 p-3 bg-slate-950 border border-slate-800 rounded-lg">
+                          <div className="space-y-1">
+                             <div className="flex justify-between text-[9px] text-slate-500 uppercase font-bold"><span>Offset X</span><span>{patternSettings.offsetX} mm</span></div>
+                             <input type="range" min="-300" max="300" step="1" value={patternSettings.offsetX} onChange={e => setPatternSettings({...patternSettings, offsetX: Number(e.target.value)})} className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-amber-500" />
+                          </div>
+                          <div className="space-y-1">
+                             <div className="flex justify-between text-[9px] text-slate-500 uppercase font-bold"><span>Offset Y</span><span>{patternSettings.offsetY} mm</span></div>
+                             <input type="range" min="-300" max="300" step="1" value={patternSettings.offsetY} onChange={e => setPatternSettings({...patternSettings, offsetY: Number(e.target.value)})} className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-amber-500" />
+                          </div>
+                       </div>
+                    </div>
+                 </div>
+
+               </div>
             </div>
-          </div>
+          )}
 
           <div className="space-y-4">
              <div className="flex items-center gap-2 pb-2 border-b border-slate-800">
@@ -653,56 +907,19 @@ const App: React.FC = () => {
                 </div>
              </div>
           </div>
-
-          <div className="space-y-4">
-             <div className="flex items-center gap-2 pb-2 border-b border-slate-800">
-                <PaintBrushIcon className="w-4 h-4 text-sky-500" />
-                <h3 className="text-slate-200 text-sm font-semibold">Drawing Settings</h3>
-             </div>
-             <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-1 p-1 bg-slate-950 rounded-lg border border-slate-800">
-                    <button onClick={() => setSettings({...settings, processingMode: 'outline'})} className={`text-[10px] font-bold py-2 rounded-md transition-all ${settings.processingMode === 'outline' ? 'bg-sky-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}>OUTLINE</button>
-                    <button onClick={() => setSettings({...settings, processingMode: 'fill'})} className={`text-[10px] font-bold py-2 rounded-md transition-all ${settings.processingMode === 'fill' ? 'bg-sky-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}>FILL</button>
-                </div>
-                <div className="space-y-1">
-                    <div className="flex justify-between text-[10px] text-slate-500 uppercase font-bold"><span>Sensitivity</span><span>{settings.threshold}</span></div>
-                    <input type="range" min="50" max="250" value={settings.threshold} onChange={e => setSettings({...settings, threshold: Number(e.target.value)})} className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-sky-500" />
-                </div>
-                {settings.processingMode === 'fill' && (
-                  <div className="space-y-3 mt-3 border-t border-slate-800 pt-3">
-                      <div>
-                         <label className="text-[10px] text-slate-500 font-bold uppercase block mb-1">Fill Style</label>
-                         <select 
-                           value={settings.fillStyle}
-                           onChange={(e) => setSettings({...settings, fillStyle: e.target.value as any})}
-                           className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-2 text-[10px] text-slate-300 focus:outline-none focus:border-sky-500"
-                         >
-                           <option value="contour">Artistic Contour (Spiral)</option>
-                           <option value="linear">Elliptical Hatch</option>
-                           <option value="scribble">Scribble</option>
-                         </select>
-                      </div>
-                      <div className="space-y-1">
-                          <div className="flex justify-between text-[10px] text-slate-500 uppercase font-bold"><span>Fill Density</span><span>{settings.fillSpacing}</span></div>
-                          <input type="range" min="2" max="15" step="1" value={settings.fillSpacing} onChange={e => setSettings({...settings, fillSpacing: Number(e.target.value)})} className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-sky-500" />
-                      </div>
-                  </div>
-                )}
-             </div>
-          </div>
         </div>
 
-        {imageSrc && (
+        {activeTab === 'image' && imageSrc && (
           <div className="p-4 border-t border-slate-800 bg-slate-950/50">
             <img src={imageSrc} alt="Original" className="w-full h-auto rounded-lg border border-slate-800 object-contain max-h-24 bg-slate-900 shadow-inner" />
           </div>
         )}
 
-        <div className="p-4 bg-slate-900 border-t border-slate-800 space-y-2">
-          <button onClick={handleDownloadGCode} disabled={!imageSrc || isProcessing} className="w-full py-3 bg-sky-600 hover:bg-sky-500 disabled:bg-slate-800 text-white text-[10px] font-black rounded-xl transition-all flex items-center justify-center gap-2 shadow-xl shadow-sky-900/20 active:scale-95">
+        <div className="p-4 bg-slate-900 border-t border-slate-800 space-y-2 sticky bottom-0 z-30">
+          <button onClick={handleDownloadGCode} disabled={(activeTab === 'image' && !imageSrc) || isProcessing} className="w-full py-3 bg-sky-600 hover:bg-sky-500 disabled:bg-slate-800 text-white text-[10px] font-black rounded-xl transition-all flex items-center justify-center gap-2 shadow-xl shadow-sky-900/20 active:scale-95">
             <ArrowDownTrayIcon className="w-4 h-4" /> EXPORT G-CODE
           </button>
-          <button onClick={handleDownloadTHR} disabled={!imageSrc || isProcessing} className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-800 text-white text-[10px] font-black rounded-xl transition-all flex items-center justify-center gap-2 shadow-xl shadow-indigo-900/20 active:scale-95">
+          <button onClick={handleDownloadTHR} disabled={(activeTab === 'image' && !imageSrc) || isProcessing} className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-800 text-white text-[10px] font-black rounded-xl transition-all flex items-center justify-center gap-2 shadow-xl shadow-indigo-900/20 active:scale-95">
             <StarIcon className="w-4 h-4" /> EXPORT .THR
           </button>
         </div>

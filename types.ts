@@ -6,11 +6,37 @@ export interface Point {
 }
 
 export type StartLocation = 'center' | 'topLeft' | 'topRight' | 'bottomLeft' | 'bottomRight' | 'custom';
-export type ProcessingMode = 'outline' | 'fill';
+export type ProcessingMode = 'outline' | 'fill' | 'counter';
 export type FillStyle = 'linear' | 'scribble' | 'contour';
 export type WorkspaceType = 'rectangular' | 'circular';
 export type PathStartPreference = 'original' | 'center' | 'edge';
 export type PathEndPreference = 'original' | 'center' | 'edge';
+
+export type PatternType = 'spirograph' | 'lissajous' | 'spiral' | 'polygon' | 'star';
+
+export interface PatternSettings {
+  type: PatternType;
+  loops: number;
+  points: number;
+  rotation: number;
+  scale: number;
+  // Spirograph
+  outerRadius: number;
+  innerRadius: number;
+  penOffset: number;
+  // Spiral/Lissajous
+  growth: number;
+  freqX: number;
+  freqY: number;
+  // Effects
+  wobbleAmplitude?: number;
+  wobbleFrequency?: number;
+  // Mirroring
+  mirrorCount?: number;
+  // Transformations
+  offsetX?: number;
+  offsetY?: number;
+}
 
 export interface ImagePlacement {
   x: number; // Position in workspace mm

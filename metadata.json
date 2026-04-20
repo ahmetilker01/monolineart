@@ -1,5 +1,6 @@
 {
-  "name": "Copy of Copy of Copy of Copy of MonoLine Art_4",
+  "name": "monolineart_sandify eklemeleri",
   "description": "Convert images into single continuous line art for CNC and Plotters (G-Code generator).",
-  "requestFramePermissions": []
+  "requestFramePermissions": [],
+  "majorCapabilities": []
 }

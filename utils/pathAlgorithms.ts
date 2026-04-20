@@ -1,5 +1,113 @@
 
-import { Point, GCodeSettings } from "../types";
+import { Point, GCodeSettings, PatternSettings } from "../types";
+
+export const generatePattern = (settings: PatternSettings, workspace: { w: number, h: number }): Point[] => {
+  let points: Point[] = [];
+  const { type, loops, points: resolution, rotation, scale, outerRadius, innerRadius, penOffset, growth, freqX, freqY, wobbleAmplitude, wobbleFrequency, mirrorCount, offsetX, offsetY } = settings;
+  const cx = workspace.w / 2;
+  const cy = workspace.h / 2;
+  const rotRad = (rotation * Math.PI) / 180;
+
+  if (type === 'spirograph') {
+    const R = outerRadius;
+    const r = innerRadius;
+    const d = penOffset;
+    const totalSteps = Math.floor(resolution * loops);
+    
+    for (let i = 0; i <= totalSteps; i++) {
+        const theta = (i / resolution) * 2 * Math.PI;
+        const x = (R - r) * Math.cos(theta) + d * Math.cos(((R - r) / r) * theta);
+        const y = (R - r) * Math.sin(theta) - d * Math.sin(((R - r) / r) * theta);
+        
+        const sx = (x * Math.cos(rotRad) - y * Math.sin(rotRad)) * scale + cx;
+        const sy = (x * Math.sin(rotRad) + y * Math.cos(rotRad)) * scale + cy;
+        points.push({ x: sx, y: sy });
+    }
+  } else if (type === 'lissajous') {
+      const totalSteps = Math.floor(resolution * loops);
+      for (let i = 0; i <= totalSteps; i++) {
+          const t = (i / resolution) * 2 * Math.PI;
+          const x = Math.sin(freqX * t);
+          const y = Math.sin(freqY * t);
+          const sx = (x * Math.cos(rotRad) - y * Math.sin(rotRad)) * (workspace.w / 2 * scale) + cx;
+          const sy = (x * Math.sin(rotRad) + y * Math.cos(rotRad)) * (workspace.h / 2 * scale) + cy;
+          points.push({ x: sx, y: sy });
+      }
+  } else if (type === 'spiral') {
+      const totalSteps = Math.floor(resolution * loops);
+      for (let i = 0; i <= totalSteps; i++) {
+          const theta = (i / resolution) * 2 * Math.PI;
+          const rRadius = growth * theta;
+          const x = rRadius * Math.cos(theta);
+          const y = rRadius * Math.sin(theta);
+          const sx = (x * Math.cos(rotRad) - y * Math.sin(rotRad)) * scale + cx;
+          const sy = (x * Math.sin(rotRad) + y * Math.cos(rotRad)) * scale + cy;
+          points.push({ x: sx, y: sy });
+      }
+  } else if (type === 'polygon') {
+      const sides = Math.max(3, Math.floor(growth)); // Reuse growth for sides
+      const totalSteps = sides;
+      for (let i = 0; i <= totalSteps; i++) {
+          const theta = (i / sides) * 2 * Math.PI;
+          const x = Math.cos(theta);
+          const y = Math.sin(theta);
+          const sx = (x * Math.cos(rotRad) - y * Math.sin(rotRad)) * (workspace.w / 2 * scale) + cx;
+          const sy = (x * Math.sin(rotRad) + y * Math.cos(rotRad)) * (workspace.h / 2 * scale) + cy;
+          points.push({ x: sx, y: sy });
+      }
+  } else if (type === 'star') {
+      const starPoints = Math.max(3, Math.floor(growth));
+      for (let i = 0; i < starPoints * 2; i++) {
+          const theta = (i / (starPoints * 2)) * 2 * Math.PI;
+          const r = i % 2 === 0 ? outerRadius : innerRadius;
+          const x = r * Math.cos(theta);
+          const y = r * Math.sin(theta);
+          const sx = (x * Math.cos(rotRad) - y * Math.sin(rotRad)) * scale + cx;
+          const sy = (x * Math.sin(rotRad) + y * Math.cos(rotRad)) * scale + cy;
+          points.push({ x: sx, y: sy });
+      }
+      if (points.length > 0) points.push({ ...points[0] });
+  }
+
+  // Apply Offset (Applied before Effects/Mirroring)
+  if ((offsetX && offsetX !== 0) || (offsetY && offsetY !== 0)) {
+    const dx = offsetX || 0;
+    const dy = offsetY || 0;
+    points = points.map(p => ({ ...p, x: p.x + dx, y: p.y + dy }));
+  }
+
+  // Apply Wobble Effect if requested
+  if (wobbleAmplitude && wobbleAmplitude > 0 && wobbleFrequency && wobbleFrequency > 0) {
+    points = points.map((p, i) => {
+      const angle = (i / points.length) * 2 * Math.PI * wobbleFrequency;
+      const waveX = Math.cos(angle) * wobbleAmplitude;
+      const waveY = Math.sin(angle) * wobbleAmplitude;
+      return { ...p, x: p.x + waveX, y: p.y + waveY };
+    });
+  }
+
+  // Apply Radial Mirroring
+  if (mirrorCount && mirrorCount > 1) {
+    const original = [...points];
+    points = [];
+    for (let i = 0; i < mirrorCount; i++) {
+        const angle = (i * 2 * Math.PI) / mirrorCount;
+        const slice = original.map(p => {
+            const dx = p.x - cx;
+            const dy = p.y - cy;
+            return {
+                ...p,
+                x: cx + dx * Math.cos(angle) - dy * Math.sin(angle),
+                y: cy + dx * Math.sin(angle) + dy * Math.cos(angle)
+            };
+        });
+        if (i % 2 === 1) slice.reverse();
+        points.push(...slice);
+    }
+  }
+
+  return points;
+};
 
 // Helper to calculate distance squared
 const distSq = (p1: Point, p2: Point) => {
@@ -433,12 +541,80 @@ const generateContourFill = (imageData: ImageData, settings: GCodeSettings): Poi
   return generateMSTPath(thinned.length > 0 ? thinned : points);
 };
 
+const generateCounterPath = (imageData: ImageData, settings: GCodeSettings): Point[] => {
+  const { width, height, data } = imageData;
+  if (width <= 0 || height <= 0) return [];
+
+  const spacing = Math.max(2, Math.floor(settings.fillSpacing));
+  const grid = new Float32Array(width * height);
+  const INF = 999999;
+
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      if (x === 0 || x === width - 1 || y === 0 || y === height - 1) {
+         grid[y * width + x] = 0;
+         continue;
+      }
+      const idx = (y * width + x) * 4;
+      const brightness = (data[idx] + data[idx+1] + data[idx+2]) / 3;
+      const isDark = settings.invert ? (brightness > settings.threshold) : (brightness < settings.threshold);
+      grid[y * width + x] = isDark ? INF : 0;
+    }
+  }
+
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      if (grid[y * width + x] === 0) continue;
+      let minVal = grid[y * width + x];
+      if (x > 0) minVal = Math.min(minVal, grid[y * width + (x - 1)] + 3);
+      if (y > 0) minVal = Math.min(minVal, grid[(y - 1) * width + x] + 3);
+      if (x > 0 && y > 0) minVal = Math.min(minVal, grid[(y - 1) * width + (x - 1)] + 4);
+      if (x < width - 1 && y > 0) minVal = Math.min(minVal, grid[(y - 1) * width + (x + 1)] + 4);
+      grid[y * width + x] = minVal;
+    }
+  }
+  for (let y = height - 1; y >= 0; y--) {
+    for (let x = width - 1; x >= 0; x--) {
+      let minVal = grid[y * width + x];
+      if (x < width - 1) minVal = Math.min(minVal, grid[y * width + (x + 1)] + 3);
+      if (y < height - 1) minVal = Math.min(minVal, grid[(y + 1) * width + x] + 3);
+      if (x < width - 1 && y < height - 1) minVal = Math.min(minVal, grid[(y + 1) * width + (x + 1)] + 4);
+      if (x > 0 && y < height - 1) minVal = Math.min(minVal, grid[(y + 1) * width + (x - 1)] + 4);
+      grid[y * width + x] = minVal;
+    }
+  }
+
+  const points: Point[] = [];
+  const step = spacing * 3;
+  const tolerance = step * 0.2; 
+
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      let dist = grid[y * width + x];
+      if (dist < INF && dist > 0) {
+        if (dist % step <= tolerance || dist % step >= step - tolerance) {
+          points.push({ x, y });
+        }
+      }
+    }
+  }
+
+  if (points.length === 0) return [];
+  const thinned = thinPoints(points, width, height);
+  const path = generateMSTPath(thinned.length > 0 ? thinned : points);
+  return settings.smoothing > 0 ? smoothPath(path, 1) : path;
+};
+
 export const processImageToSingleLine = (
   imageData: ImageData,
   settings: GCodeSettings,
   dims: { w: number, h: number }
 ): Point[] => {
   let points: Point[] = [];
+  if (settings.processingMode === 'counter') {
+      points = generateCounterPath(imageData, settings);
+      return settings.smoothing > 0 ? smoothPath(points, 1) : points;
+  }
   if (settings.processingMode === 'fill') {
     if (settings.fillStyle === 'contour') {
         points = generateContourFill(imageData, settings);
@@ -461,11 +637,14 @@ export const generateGCode = (
   imgWidth: number,
   imgHeight: number,
   settings: GCodeSettings,
-  meta: { title: string; description: string }
+  meta: { title: string; description: string },
+  isPatternLab: boolean = false
 ): string => {
   if (path.length === 0 || imgWidth <= 0 || imgHeight <= 0) return "";
 
-  const { x: placeX, y: placeY, width: placeW, height: placeH } = settings.imagePlacement;
+  const { x: placeX, y: placeY, width: placeW, height: placeH } = isPatternLab 
+    ? { x: 0, y: 0, width: settings.scaleX, height: settings.scaleY }
+    : settings.imagePlacement;
   
   let gcode = `; Generated by MonoLine Art\n`;
   gcode += `; Title: ${meta.title}\n`;
@@ -478,9 +657,9 @@ export const generateGCode = (
     let normX = p.x / imgWidth;
     let normY = p.y / imgHeight;
     
-    // Apply Flips
-    if (settings.flipX) normX = 1 - normX;
-    if (settings.flipY) normY = 1 - normY;
+    // Apply Flips (only for image mode, pattern lab is already calculated for workspace)
+    if (!isPatternLab && settings.flipX) normX = 1 - normX;
+    if (!isPatternLab && settings.flipY) normY = 1 - normY;
 
     let realX = placeX + normX * placeW;
     let realY = placeY + normY * placeH;
@@ -515,11 +694,14 @@ export const generateTHR = (
   path: Point[],
   imgWidth: number,
   imgHeight: number,
-  settings: GCodeSettings
+  settings: GCodeSettings,
+  isPatternLab: boolean = false
 ): string => {
   if (path.length === 0 || imgWidth <= 0 || imgHeight <= 0) return "";
 
-  const { x: placeX, y: placeY, width: placeW, height: placeH } = settings.imagePlacement;
+  const { x: placeX, y: placeY, width: placeW, height: placeH } = isPatternLab
+    ? { x: 0, y: 0, width: settings.scaleX, height: settings.scaleY }
+    : settings.imagePlacement;
   
   const cx = settings.scaleX / 2;
   const cy = settings.scaleY / 2;
@@ -539,8 +721,8 @@ export const generateTHR = (
     let normY = p.y / imgHeight;
 
     // Apply Flips
-    if (settings.flipX) normX = 1 - normX;
-    if (settings.flipY) normY = 1 - normY;
+    if (!isPatternLab && settings.flipX) normX = 1 - normX;
+    if (!isPatternLab && settings.flipY) normY = 1 - normY;
     
     let realX = placeX + normX * placeW;
     let realY = placeY + normY * placeH;
