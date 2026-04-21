@@ -1,14 +1,34 @@
 
 import { Point, GCodeSettings, PatternSettings } from "../types";
+import { generateText } from "./vectorText";
 
 export const generatePattern = (settings: PatternSettings, workspace: { w: number, h: number }): Point[] => {
   let points: Point[] = [];
-  const { type, loops, points: resolution, rotation, scale, outerRadius, innerRadius, penOffset, growth, freqX, freqY, wobbleAmplitude, wobbleFrequency, mirrorCount, offsetX, offsetY } = settings;
+  const { type, loops, points: resolution, rotation, scale, outerRadius, innerRadius, penOffset, growth, freqX, freqY, wobbleAmplitude, wobbleFrequency, mirrorCount, offsetX, offsetY, noiseAmplitude, textContent, textSize, textCircular, textFlipWrap } = settings;
   const cx = workspace.w / 2;
   const cy = workspace.h / 2;
   const rotRad = (rotation * Math.PI) / 180;
 
-  if (type === 'spirograph') {
+  if (type === 'text') {
+      const txt = textContent || "MONOLINE";
+      const r = outerRadius; // reuse outerRadius for Circular wrapping radius
+      const s = textSize || 20;
+      points = generateText(txt, !!textCircular, r, s, cx, cy, true, !!textFlipWrap);
+      // Connect option is hardcoded true for CNC, can be made a setting.
+      
+      // Apply pure rotation to the entire text block if needed
+      if (rotation !== 0) {
+          points = points.map(p => {
+             const dx = p.x - cx;
+             const dy = p.y - cy;
+             return {
+                 ...p,
+                 x: cx + dx * Math.cos(rotRad) - dy * Math.sin(rotRad),
+                 y: cy + dx * Math.sin(rotRad) + dy * Math.cos(rotRad)
+             };
+          });
+      }
+  } else if (type === 'spirograph') {
     const R = outerRadius;
     const r = innerRadius;
     const d = penOffset;
@@ -67,6 +87,30 @@ export const generatePattern = (settings: PatternSettings, workspace: { w: numbe
           points.push({ x: sx, y: sy });
       }
       if (points.length > 0) points.push({ ...points[0] });
+  } else if (type === 'heart') {
+      const totalSteps = Math.floor(resolution * loops);
+      for (let i = 0; i <= totalSteps; i++) {
+          const t = (i / resolution) * 2 * Math.PI;
+          const x = 16 * Math.pow(Math.sin(t), 3) / 16;
+          // Invert y math
+          const y = -(13 * Math.cos(t) - 5 * Math.cos(2*t) - 2 * Math.cos(3*t) - Math.cos(4*t)) / 16;
+          
+          const sx = (x * Math.cos(rotRad) - y * Math.sin(rotRad)) * (workspace.w / 2 * scale) + cx;
+          const sy = (x * Math.sin(rotRad) + y * Math.cos(rotRad)) * (workspace.h / 2 * scale) + cy;
+          points.push({ x: sx, y: sy });
+      }
+  } else if (type === 'rose') {
+      const k = Math.max(1, Math.floor(growth));
+      const totalSteps = Math.floor(resolution * loops);
+      for (let i = 0; i <= totalSteps; i++) {
+          const t = (i / resolution) * 2 * Math.PI;
+          const rRadius = Math.cos(k * t);
+          const x = rRadius * Math.cos(t);
+          const y = rRadius * Math.sin(t);
+          const sx = (x * Math.cos(rotRad) - y * Math.sin(rotRad)) * (workspace.w / 2 * scale) + cx;
+          const sy = (x * Math.sin(rotRad) + y * Math.cos(rotRad)) * (workspace.h / 2 * scale) + cy;
+          points.push({ x: sx, y: sy });
+      }
   }
 
   // Apply Offset (Applied before Effects/Mirroring)
@@ -83,6 +127,15 @@ export const generatePattern = (settings: PatternSettings, workspace: { w: numbe
       const waveX = Math.cos(angle) * wobbleAmplitude;
       const waveY = Math.sin(angle) * wobbleAmplitude;
       return { ...p, x: p.x + waveX, y: p.y + waveY };
+    });
+  }
+
+  // Apply Noise Effect if requested
+  if (noiseAmplitude && noiseAmplitude > 0) {
+    points = points.map(p => {
+       const dx = (Math.random() - 0.5) * 2 * noiseAmplitude;
+       const dy = (Math.random() - 0.5) * 2 * noiseAmplitude;
+       return { ...p, x: p.x + dx, y: p.y + dy };
     });
   }
 
@@ -104,6 +157,30 @@ export const generatePattern = (settings: PatternSettings, workspace: { w: numbe
         if (i % 2 === 1) slice.reverse();
         points.push(...slice);
     }
+  }
+
+  // Apply Wiper Effect
+  const { wiperPosition, wiperDensity, wiperRadius } = settings;
+  if (wiperPosition && wiperPosition !== 'none' && wiperDensity && wiperRadius) {
+      const wiperPoints: Point[] = [];
+      const loops = wiperRadius / wiperDensity;
+      const res = 100;
+      const totalSteps = Math.floor(loops * res);
+      
+      for (let i = 0; i <= totalSteps; i++) {
+          const theta = (i / res) * 2 * Math.PI;
+          const r = (i / totalSteps) * wiperRadius;
+          const x = cx + r * Math.cos(theta);
+          const y = cy + r * Math.sin(theta);
+          wiperPoints.push({ x, y });
+      }
+
+      if (wiperPosition === 'before') {
+          wiperPoints.reverse(); // Outside -> In
+          points = [...wiperPoints, ...points];
+      } else if (wiperPosition === 'after') {
+          points = [...points, ...wiperPoints]; // Inside -> Out
+      }
   }
 
   return points;

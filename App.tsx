@@ -79,12 +79,15 @@ const App: React.FC = () => {
     thrSwapXY: false
   });
 
-  const [patternSettings, setPatternSettings] = useState<PatternSettings>({
-    type: 'spirograph',
+  const [patternLayers, setPatternLayers] = useState<PatternSettings[]>([{
+    id: 'layer-1',
+    name: 'Wiper Base',
+    visible: true,
+    type: 'spiral', // Often used as wipe or base
     loops: 10,
     points: 100,
     rotation: 0,
-    scale: 0.8,
+    scale: 1,
     outerRadius: 100,
     innerRadius: 40,
     penOffset: 60,
@@ -95,8 +98,36 @@ const App: React.FC = () => {
     wobbleFrequency: 10,
     mirrorCount: 1,
     offsetX: 0,
-    offsetY: 0
-  });
+    offsetY: 0,
+    wiperPosition: 'none',
+    wiperDensity: 5,
+    wiperRadius: 280,
+    textContent: 'MONOLINE',
+    textSize: 20,
+    textCircular: false
+  }]);
+  
+  const [activeLayerId, setActiveLayerId] = useState<string>('layer-1');
+  const activeLayer = patternLayers.find(l => l.id === activeLayerId) || patternLayers[0];
+
+  const updateActiveLayer = (updates: Partial<PatternSettings>) => {
+    setPatternLayers(layers => layers.map(l => l.id === activeLayerId ? { ...l, ...updates } : l));
+  };
+
+  const addLayer = () => {
+    const newId = `layer-${Date.now()}`;
+    setPatternLayers(layers => [...layers, { ...activeLayer, id: newId, name: `Layer ${layers.length + 1}` }]);
+    setActiveLayerId(newId);
+  };
+  
+  const deleteLayer = (id: string) => {
+    setPatternLayers(layers => {
+      const filtered = layers.filter(l => l.id !== id);
+      if (filtered.length === 0) return layers; // Don't delete last
+      if (activeLayerId === id) setActiveLayerId(filtered[0].id);
+      return filtered;
+    });
+  };
 
   const [aiMeta, setAiMeta] = useState<AnalysisResult>({
     title: "MonoLine_Art",
@@ -133,12 +164,24 @@ const App: React.FC = () => {
   // Auto-generate pattern
   useEffect(() => {
     if (activeTab === 'pattern') {
-      const path = generatePattern(patternSettings, { w: settings.scaleX, h: settings.scaleY });
-      setPatternPath(path);
+      const combinedPath: Point[] = [];
+      patternLayers.forEach(layer => {
+        if (!layer.visible) return;
+        const layerPath = generatePattern(layer, { w: settings.scaleX, h: settings.scaleY });
+        if (layerPath.length > 0) {
+            // If we already have points, draw a jump to the start of this layer
+            if (combinedPath.length > 0) {
+                combinedPath.push({ ...combinedPath[combinedPath.length - 1], isJump: true });
+                combinedPath.push({ ...layerPath[0], isJump: true });
+            }
+            combinedPath.push(...layerPath);
+        }
+      });
+      setPatternPath(combinedPath);
       // Reset simulation when pattern changes
       setSimProgress(100);
     }
-  }, [patternSettings, settings.scaleX, settings.scaleY, activeTab]);
+  }, [patternLayers, settings.scaleX, settings.scaleY, activeTab]);
 
   const currentPath = activeTab === 'image' ? processedPath : patternPath;
 
@@ -557,7 +600,10 @@ const App: React.FC = () => {
       <aside className="w-full md:w-80 bg-slate-900 border-t md:border-t-0 md:border-r border-slate-800 flex flex-col flex-1 md:flex-none md:h-full overflow-y-auto shadow-2xl z-20 order-2 md:order-1">
         <div className="p-4 border-b border-slate-800 shrink-0 bg-slate-900 overflow-hidden">
           <div className="flex items-center justify-between mb-3">
-             <h1 className="text-xl font-black text-sky-400 tracking-tight">MonoLine Art</h1>
+             <div className="flex items-baseline gap-1.5">
+               <h1 className="text-xl font-black text-sky-400 tracking-tight">MonoLine Art</h1>
+               <span className="text-sm font-bold text-indigo-200/80 tracking-wide">by Igotech</span>
+             </div>
              <SparklesIcon className="w-5 h-5 text-amber-500 animate-pulse" />
           </div>
           
@@ -639,84 +685,156 @@ const App: React.FC = () => {
                      <BeakerIcon className="w-4 h-4 text-amber-500" />
                      <h3 className="text-slate-200 text-sm font-semibold">Generative Patterns</h3>
                   </div>
+
+                  {/* Layers System */}
+                  <div className="space-y-2">
+                     <div className="flex justify-between items-center mb-1">
+                        <label className="text-[10px] text-slate-500 font-bold uppercase block">Layers</label>
+                        <button onClick={addLayer} className="text-[9px] text-sky-400 bg-sky-950 px-2 py-0.5 rounded border border-sky-800 uppercase font-bold">+ New Layer</button>
+                     </div>
+                     <div className="space-y-1.5 max-h-32 overflow-y-auto pr-1">
+                        {patternLayers.map((layer, index) => (
+                           <div 
+                              key={layer.id} 
+                              className={`flex items-center justify-between p-2 rounded-lg cursor-pointer border ${layer.id === activeLayerId ? 'bg-amber-950/40 border-amber-500/50' : 'bg-slate-950 border-slate-800 hover:border-slate-700'}`}
+                              onClick={() => setActiveLayerId(layer.id)}
+                           >
+                              <div className="flex items-center gap-2 flex-1">
+                                 <input 
+                                    type="checkbox" 
+                                    checked={layer.visible} 
+                                    onChange={(e) => { e.stopPropagation(); setPatternLayers(ls => ls.map(l => l.id === layer.id ? {...l, visible: e.target.checked} : l)) }}
+                                    className="accent-amber-500 w-3 h-3"
+                                 />
+                                 <span className={`text-[10px] font-bold uppercase truncate ${layer.id === activeLayerId ? 'text-amber-400' : 'text-slate-400'}`}>
+                                    {index + 1}. {layer.type} {layer.type === 'text' ? `"${layer.textContent?.substring(0, 5)}"` : ''}
+                                 </span>
+                              </div>
+                              <button 
+                                 onClick={(e) => { e.stopPropagation(); deleteLayer(layer.id); }}
+                                 className="text-red-500/50 hover:text-red-400 text-xs px-2"
+                              >✕</button>
+                           </div>
+                        ))}
+                     </div>
+                  </div>
                   
-                  <div className="space-y-4">
+                  <div className="space-y-4 pt-3 border-t border-slate-800">
                     <div>
                         <label className="text-[10px] text-slate-500 font-bold uppercase block mb-1">Pattern Type</label>
-                        <div className="grid grid-cols-2 gap-1 font-bold text-[9px]">
-                           {(['spirograph', 'lissajous', 'spiral', 'polygon', 'star'] as PatternType[]).map(t => (
+                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-1 font-bold text-[9px]">
+                           {(['spirograph', 'lissajous', 'spiral', 'polygon', 'star', 'heart', 'rose', 'text'] as PatternType[]).map(t => (
                               <button 
                                 key={t}
-                                onClick={() => setPatternSettings({...patternSettings, type: t})}
-                                className={`py-2 px-1 rounded uppercase tracking-tighter ${patternSettings.type === t ? 'bg-amber-600 text-white' : 'bg-slate-950 text-slate-500 border border-slate-800'}`}
+                                onClick={() => updateActiveLayer({ type: t })}
+                                className={`py-2 px-1 rounded uppercase tracking-tighter ${activeLayer.type === t ? 'bg-amber-600 text-white' : 'bg-slate-950 text-slate-500 border border-slate-800'}`}
                               >
-                                {t}
+                                {t === 'spirograph' ? 'spiro' : t}
                               </button>
                            ))}
                         </div>
                     </div>
 
-                    <div className="space-y-3 p-3 bg-slate-950 border border-slate-800 rounded-lg">
-                       <div className="space-y-1">
-                          <div className="flex justify-between text-[9px] text-slate-500 uppercase font-bold"><span>Loops / Cycles</span><span>{patternSettings.loops}</span></div>
-                          <input type="range" min="1" max="50" step="0.5" value={patternSettings.loops} onChange={e => setPatternSettings({...patternSettings, loops: Number(e.target.value)})} className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-amber-500" />
-                       </div>
-                       
-                       <div className="space-y-1">
-                          <div className="flex justify-between text-[9px] text-slate-500 uppercase font-bold"><span>Scale</span><span>{patternSettings.scale.toFixed(2)}</span></div>
-                          <input type="range" min="0.1" max="2" step="0.05" value={patternSettings.scale} onChange={e => setPatternSettings({...patternSettings, scale: Number(e.target.value)})} className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-amber-500" />
-                       </div>
-
-                       <div className="space-y-1">
-                          <div className="flex justify-between text-[9px] text-slate-500 uppercase font-bold"><span>Rotation</span><span>{patternSettings.rotation}°</span></div>
-                          <input type="range" min="0" max="360" step="1" value={patternSettings.rotation} onChange={e => setPatternSettings({...patternSettings, rotation: Number(e.target.value)})} className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-amber-500" />
-                       </div>
-                    </div>
-
-                    {patternSettings.type === 'spirograph' && (
+                    {activeLayer.type === 'text' ? (
                        <div className="space-y-3 p-3 bg-slate-950 border border-slate-800 rounded-lg">
                           <div className="space-y-1">
-                             <div className="flex justify-between text-[9px] text-slate-500 uppercase font-bold"><span>Outer Radius</span><span>{patternSettings.outerRadius}</span></div>
-                             <input type="range" min="10" max="300" value={patternSettings.outerRadius} onChange={e => setPatternSettings({...patternSettings, outerRadius: Number(e.target.value)})} className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-amber-500" />
+                             <label className="text-[9px] text-slate-500 font-bold uppercase block">Text</label>
+                             <input 
+                               type="text" 
+                               value={activeLayer.textContent || ''} 
+                               onChange={(e) => updateActiveLayer({ textContent: e.target.value })}
+                               className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-xs text-slate-200 outline-none focus:border-amber-500"
+                               placeholder="Write something..."
+                             />
                           </div>
-                          <div className="space-y-1">
-                             <div className="flex justify-between text-[9px] text-slate-500 uppercase font-bold"><span>Inner Radius</span><span>{patternSettings.innerRadius}</span></div>
-                             <input type="range" min="1" max="300" value={patternSettings.innerRadius} onChange={e => setPatternSettings({...patternSettings, innerRadius: Number(e.target.value)})} className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-amber-500" />
+                          <div className="flex items-center gap-2 mt-2">
+                             <input 
+                               type="checkbox" 
+                               id="text-circular"
+                               checked={activeLayer.textCircular || false} 
+                               onChange={(e) => updateActiveLayer({ textCircular: e.target.checked })}
+                               className="accent-amber-500 w-3 h-3"
+                             />
+                             <label htmlFor="text-circular" className="text-[9px] text-slate-300 font-bold uppercase">Circular Wrap</label>
                           </div>
+                          <div className="space-y-1 mt-2">
+                             <div className="flex justify-between text-[9px] text-slate-500 uppercase font-bold"><span>Size</span><span>{activeLayer.textSize}</span></div>
+                             <input type="range" min="5" max="100" step="1" value={activeLayer.textSize || 20} onChange={e => updateActiveLayer({ textSize: Number(e.target.value) })} className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-amber-500" />
+                          </div>
+                          {activeLayer.textCircular && (
+                             <div className="space-y-1 mt-2">
+                                <div className="flex justify-between text-[9px] text-slate-500 uppercase font-bold"><span>Wrap Radius</span><span>{activeLayer.outerRadius}</span></div>
+                                <input type="range" min="10" max="400" step="5" value={activeLayer.outerRadius} onChange={e => updateActiveLayer({ outerRadius: Number(e.target.value) })} className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-amber-500" />
+                             </div>
+                          )}
+                          <div className="space-y-1 mt-2">
+                             <div className="flex justify-between text-[9px] text-slate-500 uppercase font-bold"><span>Rotation</span><span>{activeLayer.rotation}°</span></div>
+                             <input type="range" min="0" max="360" step="1" value={activeLayer.rotation} onChange={e => updateActiveLayer({ rotation: Number(e.target.value) })} className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-amber-500" />
+                          </div>
+                       </div>
+                    ) : (
+                       <div className="space-y-3 p-3 bg-slate-950 border border-slate-800 rounded-lg">
                           <div className="space-y-1">
-                             <div className="flex justify-between text-[9px] text-slate-500 uppercase font-bold"><span>Pen Offset</span><span>{patternSettings.penOffset}</span></div>
-                             <input type="range" min="1" max="300" value={patternSettings.penOffset} onChange={e => setPatternSettings({...patternSettings, penOffset: Number(e.target.value)})} className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-amber-500" />
+                             <div className="flex justify-between text-[9px] text-slate-500 uppercase font-bold"><span>Loops / Cycles</span><span>{activeLayer.loops}</span></div>
+                             <input type="range" min="1" max="50" step="0.5" value={activeLayer.loops} onChange={e => updateActiveLayer({ loops: Number(e.target.value) })} className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-amber-500" />
+                          </div>
+                          
+                          <div className="space-y-1">
+                             <div className="flex justify-between text-[9px] text-slate-500 uppercase font-bold"><span>Scale</span><span>{activeLayer.scale.toFixed(2)}</span></div>
+                             <input type="range" min="0.1" max="2" step="0.05" value={activeLayer.scale} onChange={e => updateActiveLayer({ scale: Number(e.target.value) })} className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-amber-500" />
+                          </div>
+
+                          <div className="space-y-1">
+                             <div className="flex justify-between text-[9px] text-slate-500 uppercase font-bold"><span>Rotation</span><span>{activeLayer.rotation}°</span></div>
+                             <input type="range" min="0" max="360" step="1" value={activeLayer.rotation} onChange={e => updateActiveLayer({ rotation: Number(e.target.value) })} className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-amber-500" />
                           </div>
                        </div>
                     )}
 
-                    {(patternSettings.type === 'lissajous') && (
+                    {activeLayer.type === 'spirograph' && (
                        <div className="space-y-3 p-3 bg-slate-950 border border-slate-800 rounded-lg">
                           <div className="space-y-1">
-                             <div className="flex justify-between text-[9px] text-slate-500 uppercase font-bold"><span>Freq X</span><span>{patternSettings.freqX}</span></div>
-                             <input type="range" min="1" max="20" step="0.1" value={patternSettings.freqX} onChange={e => setPatternSettings({...patternSettings, freqX: Number(e.target.value)})} className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-amber-500" />
+                             <div className="flex justify-between text-[9px] text-slate-500 uppercase font-bold"><span>Outer Radius</span><span>{activeLayer.outerRadius}</span></div>
+                             <input type="range" min="10" max="300" value={activeLayer.outerRadius} onChange={e => updateActiveLayer({ outerRadius: Number(e.target.value) })} className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-amber-500" />
                           </div>
                           <div className="space-y-1">
-                             <div className="flex justify-between text-[9px] text-slate-500 uppercase font-bold"><span>Freq Y</span><span>{patternSettings.freqY}</span></div>
-                             <input type="range" min="1" max="20" step="0.1" value={patternSettings.freqY} onChange={e => setPatternSettings({...patternSettings, freqY: Number(e.target.value)})} className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-amber-500" />
+                             <div className="flex justify-between text-[9px] text-slate-500 uppercase font-bold"><span>Inner Radius</span><span>{activeLayer.innerRadius}</span></div>
+                             <input type="range" min="1" max="300" value={activeLayer.innerRadius} onChange={e => updateActiveLayer({ innerRadius: Number(e.target.value) })} className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-amber-500" />
+                          </div>
+                          <div className="space-y-1">
+                             <div className="flex justify-between text-[9px] text-slate-500 uppercase font-bold"><span>Pen Offset</span><span>{activeLayer.penOffset}</span></div>
+                             <input type="range" min="1" max="300" value={activeLayer.penOffset} onChange={e => updateActiveLayer({ penOffset: Number(e.target.value) })} className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-amber-500" />
                           </div>
                        </div>
                     )}
 
-                    {(patternSettings.type === 'spiral' || patternSettings.type === 'polygon' || patternSettings.type === 'star') && (
+                    {(activeLayer.type === 'lissajous') && (
+                       <div className="space-y-3 p-3 bg-slate-950 border border-slate-800 rounded-lg">
+                          <div className="space-y-1">
+                             <div className="flex justify-between text-[9px] text-slate-500 uppercase font-bold"><span>Freq X</span><span>{activeLayer.freqX}</span></div>
+                             <input type="range" min="1" max="20" step="0.1" value={activeLayer.freqX} onChange={e => updateActiveLayer({ freqX: Number(e.target.value) })} className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-amber-500" />
+                          </div>
+                          <div className="space-y-1">
+                             <div className="flex justify-between text-[9px] text-slate-500 uppercase font-bold"><span>Freq Y</span><span>{activeLayer.freqY}</span></div>
+                             <input type="range" min="1" max="20" step="0.1" value={activeLayer.freqY} onChange={e => updateActiveLayer({ freqY: Number(e.target.value) })} className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-amber-500" />
+                          </div>
+                       </div>
+                    )}
+
+                    {(activeLayer.type === 'spiral' || activeLayer.type === 'polygon' || activeLayer.type === 'star' || activeLayer.type === 'rose') && (
                        <div className="space-y-3 p-3 bg-slate-950 border border-slate-800 rounded-lg">
                           <div className="space-y-1">
                              <div className="flex justify-between text-[9px] text-slate-500 uppercase font-bold">
-                                <span>{patternSettings.type === 'spiral' ? 'Growth Rate' : (patternSettings.type === 'star' ? 'Points' : 'Sides')}</span>
-                                <span>{patternSettings.growth}</span>
+                                <span>{activeLayer.type === 'spiral' ? 'Growth Rate' : (activeLayer.type === 'star' ? 'Points' : (activeLayer.type === 'rose' ? 'Petals (k-value)' : 'Sides'))}</span>
+                                <span>{activeLayer.growth}</span>
                              </div>
                              <input 
                                type="range" 
-                               min={patternSettings.type === 'spiral' ? 0.1 : 3} 
-                               max={patternSettings.type === 'spiral' ? 10 : (patternSettings.type === 'star' ? 30 : 20)} 
-                               step={patternSettings.type === 'spiral' ? 0.1 : 1} 
-                               value={patternSettings.growth} 
-                               onChange={e => setPatternSettings({...patternSettings, growth: Number(e.target.value)})} 
+                               min={activeLayer.type === 'spiral' ? 0.1 : (activeLayer.type === 'rose' ? 1 : 3)} 
+                               max={activeLayer.type === 'spiral' ? 10 : (activeLayer.type === 'star' ? 30 : 20)} 
+                               step={activeLayer.type === 'spiral' ? 0.1 : 1} 
+                               value={activeLayer.growth} 
+                               onChange={e => updateActiveLayer({ growth: Number(e.target.value) })} 
                                className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-amber-500" 
                              />
                           </div>
@@ -726,16 +844,20 @@ const App: React.FC = () => {
                     <div className="space-y-3 pt-4 border-t border-slate-800">
                        <div className="flex items-center gap-2">
                           <SparklesIcon className="w-3 h-3 text-amber-500" />
-                          <h3 className="text-slate-300 text-[10px] font-bold uppercase tracking-wider">Effects (Wobble)</h3>
+                          <h3 className="text-slate-300 text-[10px] font-bold uppercase tracking-wider">Effects (Wobble & Noise)</h3>
                        </div>
                        <div className="space-y-3 p-3 bg-slate-950 border border-slate-800 rounded-lg">
                           <div className="space-y-1">
-                             <div className="flex justify-between text-[9px] text-slate-500 uppercase font-bold"><span>Amplitude</span><span>{patternSettings.wobbleAmplitude}</span></div>
-                             <input type="range" min="0" max="20" step="0.5" value={patternSettings.wobbleAmplitude} onChange={e => setPatternSettings({...patternSettings, wobbleAmplitude: Number(e.target.value)})} className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-amber-500" />
+                             <div className="flex justify-between text-[9px] text-slate-500 uppercase font-bold"><span>Wobble Amplitude</span><span>{activeLayer.wobbleAmplitude}</span></div>
+                             <input type="range" min="0" max="20" step="0.5" value={activeLayer.wobbleAmplitude} onChange={e => updateActiveLayer({ wobbleAmplitude: Number(e.target.value) })} className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-amber-500" />
                           </div>
                           <div className="space-y-1">
-                             <div className="flex justify-between text-[9px] text-slate-500 uppercase font-bold"><span>Frequency</span><span>{patternSettings.wobbleFrequency}</span></div>
-                             <input type="range" min="1" max="100" step="1" value={patternSettings.wobbleFrequency} onChange={e => setPatternSettings({...patternSettings, wobbleFrequency: Number(e.target.value)})} className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-amber-500" />
+                             <div className="flex justify-between text-[9px] text-slate-500 uppercase font-bold"><span>Wobble Frequency</span><span>{activeLayer.wobbleFrequency}</span></div>
+                             <input type="range" min="1" max="100" step="1" value={activeLayer.wobbleFrequency} onChange={e => updateActiveLayer({ wobbleFrequency: Number(e.target.value) })} className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-amber-500" />
+                          </div>
+                          <div className="space-y-1 mt-4">
+                             <div className="flex justify-between text-[9px] text-slate-500 uppercase font-bold"><span>Noise Amplitude</span><span>{activeLayer.noiseAmplitude || 0}</span></div>
+                             <input type="range" min="0" max="10" step="0.1" value={activeLayer.noiseAmplitude || 0} onChange={e => updateActiveLayer({ noiseAmplitude: Number(e.target.value) })} className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-amber-500" />
                           </div>
                        </div>
                     </div>
@@ -746,8 +868,8 @@ const App: React.FC = () => {
                        </div>
                        <div className="space-y-3 p-3 bg-slate-950 border border-slate-800 rounded-lg">
                           <div className="space-y-1">
-                             <div className="flex justify-between text-[9px] text-slate-500 uppercase font-bold"><span>Radial Clones</span><span>{patternSettings.mirrorCount}</span></div>
-                             <input type="range" min="1" max="12" step="1" value={patternSettings.mirrorCount} onChange={e => setPatternSettings({...patternSettings, mirrorCount: Number(e.target.value)})} className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-amber-500" />
+                             <div className="flex justify-between text-[9px] text-slate-500 uppercase font-bold"><span>Radial Clones</span><span>{activeLayer.mirrorCount}</span></div>
+                             <input type="range" min="1" max="12" step="1" value={activeLayer.mirrorCount} onChange={e => updateActiveLayer({ mirrorCount: Number(e.target.value) })} className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-amber-500" />
                           </div>
                           <p className="text-[9px] text-slate-500 italic">Repeats the pattern radially for "Snowflake" style effects.</p>
                        </div>
@@ -760,13 +882,49 @@ const App: React.FC = () => {
                        </div>
                        <div className="space-y-3 p-3 bg-slate-950 border border-slate-800 rounded-lg">
                           <div className="space-y-1">
-                             <div className="flex justify-between text-[9px] text-slate-500 uppercase font-bold"><span>Offset X</span><span>{patternSettings.offsetX} mm</span></div>
-                             <input type="range" min="-300" max="300" step="1" value={patternSettings.offsetX} onChange={e => setPatternSettings({...patternSettings, offsetX: Number(e.target.value)})} className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-amber-500" />
+                             <div className="flex justify-between text-[9px] text-slate-500 uppercase font-bold"><span>Offset X</span><span>{activeLayer.offsetX} mm</span></div>
+                             <input type="range" min="-300" max="300" step="1" value={activeLayer.offsetX} onChange={e => updateActiveLayer({ offsetX: Number(e.target.value) })} className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-amber-500" />
                           </div>
                           <div className="space-y-1">
-                             <div className="flex justify-between text-[9px] text-slate-500 uppercase font-bold"><span>Offset Y</span><span>{patternSettings.offsetY} mm</span></div>
-                             <input type="range" min="-300" max="300" step="1" value={patternSettings.offsetY} onChange={e => setPatternSettings({...patternSettings, offsetY: Number(e.target.value)})} className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-amber-500" />
+                             <div className="flex justify-between text-[9px] text-slate-500 uppercase font-bold"><span>Offset Y</span><span>{activeLayer.offsetY} mm</span></div>
+                             <input type="range" min="-300" max="300" step="1" value={activeLayer.offsetY} onChange={e => updateActiveLayer({ offsetY: Number(e.target.value) })} className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-amber-500" />
                           </div>
+                       </div>
+                    </div>
+
+                    <div className="space-y-3 pt-4 border-t border-slate-800">
+                       <div className="flex items-center gap-2">
+                          <ArrowPathIcon className="w-3 h-3 text-amber-500" />
+                          <h3 className="text-slate-300 text-[10px] font-bold uppercase tracking-wider">Wiper (Silecek / Arka Plan)</h3>
+                       </div>
+                       <div className="space-y-3 p-3 bg-slate-950 border border-slate-800 rounded-lg">
+                          <div>
+                            <label className="text-[9px] text-slate-500 font-bold uppercase block mb-1">Add Wiper Effect</label>
+                            <div className="grid grid-cols-3 gap-1 font-bold text-[9px]">
+                               {['none', 'before', 'after'].map(w => (
+                                  <button 
+                                    key={w}
+                                    onClick={() => updateActiveLayer({ wiperPosition: w as any })}
+                                    className={`py-1 rounded uppercase tracking-tighter ${activeLayer.wiperPosition === w ? 'bg-amber-600 text-white' : 'bg-slate-900 text-slate-500 border border-slate-700'}`}
+                                  >
+                                    {w}
+                                  </button>
+                               ))}
+                            </div>
+                          </div>
+                          {activeLayer.wiperPosition !== 'none' && (
+                            <>
+                              <div className="space-y-1 mt-2">
+                                 <div className="flex justify-between text-[9px] text-slate-500 uppercase font-bold"><span>Wiper Radius</span><span>{activeLayer.wiperRadius} mm</span></div>
+                                 <input type="range" min="50" max="600" step="10" value={activeLayer.wiperRadius} onChange={e => updateActiveLayer({ wiperRadius: Number(e.target.value) })} className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-amber-500" />
+                              </div>
+                              <div className="space-y-1">
+                                 <div className="flex justify-between text-[9px] text-slate-500 uppercase font-bold"><span>Line Density</span><span>{activeLayer.wiperDensity} mm/loop</span></div>
+                                 <input type="range" min="1" max="20" step="1" value={activeLayer.wiperDensity} onChange={e => updateActiveLayer({ wiperDensity: Number(e.target.value) })} className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-amber-500" />
+                              </div>
+                              <p className="text-[9px] text-slate-500 italic">Pre-wipe clears sandbox before drawing. Post-wipe erases after.</p>
+                            </>
+                          )}
                        </div>
                     </div>
                  </div>
@@ -958,32 +1116,49 @@ const App: React.FC = () => {
             </button>
         </div>
 
-        {imageSrc && (
-            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-6 bg-slate-900/95 p-4 rounded-2xl border border-slate-800 shadow-2xl backdrop-blur-xl max-w-[90vw]">
-                <div className="flex items-center gap-3 pr-6 border-r border-slate-800">
-                    <button onClick={() => setIsPlaying(!isPlaying)} className={`w-12 h-12 flex items-center justify-center rounded-full text-white transition-all ${isPlaying ? 'bg-amber-500 shadow-amber-500/20' : 'bg-sky-600 shadow-sky-500/20 hover:scale-105'}`}>
-                        {isPlaying ? <PauseIcon className="w-6 h-6" /> : <PlayIcon className="w-6 h-6" />}
-                    </button>
-                    <div className="hidden sm:block">
-                        <span className="text-[10px] font-black text-slate-500 uppercase block leading-none mb-1">Status</span>
-                        <span className="text-xs font-bold text-slate-200">{isPlaying ? 'Simulating' : 'Paused'}</span>
-                    </div>
-                </div>
+        {(imageSrc || activeTab === 'pattern') && (
+            <div className="absolute top-1/2 left-2 md:left-4 -translate-y-1/2 flex flex-col items-center gap-2 md:gap-3 bg-slate-900/90 p-1.5 md:p-2 rounded-xl md:rounded-2xl border border-slate-700/50 shadow-2xl backdrop-blur-md z-20">
+                <button 
+                    onClick={() => {
+                        if (!isPlaying && simProgress >= 100) {
+                            setSimProgress(0);
+                        }
+                        setIsPlaying(!isPlaying);
+                    }} 
+                    className={`w-8 h-8 md:w-10 md:h-10 flex items-center justify-center rounded-full text-white transition-all shadow-lg ${isPlaying ? 'bg-amber-500 shadow-amber-500/20' : 'bg-sky-600 shadow-sky-500/20 hover:scale-110'}`} 
+                    title={isPlaying ? 'Pause' : 'Play'}
+                >
+                    {isPlaying ? <PauseIcon className="w-4 h-4 md:w-5 md:h-5" /> : <PlayIcon className="w-4 h-4 md:w-5 md:h-5 flex-shrink-0 ml-0.5" />}
+                </button>
                 
-                <div className="flex-1 min-w-[120px]">
-                    <div className="flex justify-between text-[10px] text-slate-400 font-black tracking-widest uppercase mb-2">
-                        <span>Simulation Progress</span>
-                        <span className="text-sky-400">{Math.round(simProgress)}%</span>
-                    </div>
-                    <input type="range" min="0" max="100" step="0.1" value={simProgress} onChange={e => setSimProgress(Number(e.target.value))} className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-sky-500" />
+                <div className="h-px w-4 md:w-6 bg-slate-800 my-0.5 md:my-1"></div>
+                
+                {/* Progress bar (vertical) */}
+                <div className="flex flex-col items-center gap-1 md:gap-2 group">
+                    <span className="text-[8px] md:text-[9px] text-sky-400 font-black tracking-tighter" title="Progress">{Math.round(simProgress)}%</span>
+                    <input 
+                        type="range" 
+                        min="0" max="100" step="0.1" 
+                        value={simProgress} 
+                        onChange={e => setSimProgress(Number(e.target.value))} 
+                        className="w-1 md:w-1.5 h-20 md:h-28 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-sky-500 hover:accent-sky-400"
+                        style={{ WebkitAppearance: 'slider-vertical', writingMode: 'vertical-rl', direction: 'rtl' } as any}
+                    />
                 </div>
 
-                <div className="flex-1 min-w-[80px] max-w-[120px] pl-6 border-l border-slate-800">
-                    <div className="flex justify-between text-[10px] text-slate-400 font-black tracking-widest uppercase mb-2">
-                        <span>Speed</span>
-                        <span className="text-sky-400">{simSpeed.toFixed(1)}x</span>
-                    </div>
-                    <input type="range" min="0.1" max="5" step="0.1" value={simSpeed} onChange={e => setSimSpeed(Number(e.target.value))} className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-sky-500" />
+                <div className="h-px w-4 md:w-6 bg-slate-800 my-0.5 md:my-1"></div>
+
+                {/* Speed bar (vertical) */}
+                <div className="flex flex-col items-center gap-1 md:gap-2 group">
+                    <span className="text-[8px] md:text-[9px] text-amber-500 font-black tracking-tighter" title="Speed">{simSpeed.toFixed(1)}x</span>
+                    <input 
+                        type="range" 
+                        min="0.1" max="5" step="0.1" 
+                        value={simSpeed} 
+                        onChange={e => setSimSpeed(Number(e.target.value))} 
+                        className="w-1 md:w-1.5 h-12 md:h-16 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-amber-500 hover:accent-amber-400"
+                        style={{ WebkitAppearance: 'slider-vertical', writingMode: 'vertical-rl', direction: 'rtl' } as any}
+                    />
                 </div>
             </div>
         )}

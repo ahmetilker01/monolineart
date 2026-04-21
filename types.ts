@@ -12,9 +12,12 @@ export type WorkspaceType = 'rectangular' | 'circular';
 export type PathStartPreference = 'original' | 'center' | 'edge';
 export type PathEndPreference = 'original' | 'center' | 'edge';
 
-export type PatternType = 'spirograph' | 'lissajous' | 'spiral' | 'polygon' | 'star';
+export type PatternType = 'spirograph' | 'lissajous' | 'spiral' | 'polygon' | 'star' | 'heart' | 'rose' | 'text';
 
 export interface PatternSettings {
+  id: string;
+  name: string;
+  visible: boolean;
   type: PatternType;
   loops: number;
   points: number;
@@ -31,6 +34,16 @@ export interface PatternSettings {
   // Effects
   wobbleAmplitude?: number;
   wobbleFrequency?: number;
+  noiseAmplitude?: number;
+  // Wiper Effect
+  wiperPosition?: 'none' | 'before' | 'after';
+  wiperDensity?: number;
+  wiperRadius?: number;
+  // Text
+  textContent?: string;
+  textSize?: number;
+  textCircular?: boolean;
+  textFlipWrap?: boolean;
   // Mirroring
   mirrorCount?: number;
   // Transformations
