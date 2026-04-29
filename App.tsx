@@ -24,7 +24,8 @@ import {
   ArrowsUpDownIcon,
   PhotoIcon,
   BeakerIcon,
-  SparklesIcon
+  SparklesIcon,
+  ShareIcon
 } from '@heroicons/react/24/outline';
 
 interface SliderControlProps {
@@ -719,6 +720,32 @@ const App: React.FC = () => {
     downloadFile(thr, `${aiMeta.title.replace(/\s/g, '_')}.thr`);
   };
 
+  const handleShareTHR = async () => {
+    const exportPath = getExportPath();
+    if (exportPath.length === 0) return;
+    
+    const thr = generateTHR(exportPath, activeTab === 'image' ? imgDimensions.w : settings.scaleX, activeTab === 'image' ? imgDimensions.h : settings.scaleY, settings, activeTab === 'pattern');
+    const fileName = `${aiMeta.title.replace(/\s/g, '_')}.thr`;
+    
+    if (navigator.share) {
+      const file = new File([thr], fileName, { type: 'text/plain' });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        try {
+          await navigator.share({
+            files: [file],
+            title: aiMeta.title,
+          });
+        } catch (err) {
+          console.error("Share failed:", err);
+        }
+      } else {
+        alert("File sharing is not supported in this browser.");
+      }
+    } else {
+      alert("Sharing feature is not supported in this browser.");
+    }
+  };
+
   return (
     <div className="h-screen w-screen flex flex-col md:flex-row bg-slate-950 overflow-hidden font-sans">
       <aside className="w-full md:w-80 bg-slate-900 border-t md:border-t-0 md:border-r border-slate-800 flex flex-col flex-1 md:flex-none md:h-full overflow-y-auto shadow-2xl z-20 order-2 md:order-1">
@@ -1208,11 +1235,16 @@ const App: React.FC = () => {
         )}
 
         <div className="p-4 bg-slate-900 border-t border-slate-800 space-y-2">
+          <div className="grid grid-cols-2 gap-2">
+            <button onClick={handleDownloadTHR} disabled={(activeTab === 'image' && !imageSrc) || isProcessing} className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-800 text-white text-[10px] font-black rounded-xl transition-all flex items-center justify-center gap-2 shadow-xl shadow-indigo-900/20 active:scale-95">
+              <StarIcon className="w-4 h-4" /> EXPORT .THR
+            </button>
+            <button onClick={handleShareTHR} disabled={(activeTab === 'image' && !imageSrc) || isProcessing} className="w-full py-3 bg-teal-600 hover:bg-teal-500 disabled:bg-slate-800 text-white text-[10px] font-black rounded-xl transition-all flex items-center justify-center gap-2 shadow-xl shadow-teal-900/20 active:scale-95">
+              <ShareIcon className="w-4 h-4" /> SHARE (.THR)
+            </button>
+          </div>
           <button onClick={handleDownloadGCode} disabled={(activeTab === 'image' && !imageSrc) || isProcessing} className="w-full py-3 bg-sky-600 hover:bg-sky-500 disabled:bg-slate-800 text-white text-[10px] font-black rounded-xl transition-all flex items-center justify-center gap-2 shadow-xl shadow-sky-900/20 active:scale-95">
             <ArrowDownTrayIcon className="w-4 h-4" /> EXPORT G-CODE
-          </button>
-          <button onClick={handleDownloadTHR} disabled={(activeTab === 'image' && !imageSrc) || isProcessing} className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-800 text-white text-[10px] font-black rounded-xl transition-all flex items-center justify-center gap-2 shadow-xl shadow-indigo-900/20 active:scale-95">
-            <StarIcon className="w-4 h-4" /> EXPORT .THR
           </button>
         </div>
       </aside>
