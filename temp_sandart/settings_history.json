@@ -1,0 +1,1512 @@
+{
+  "001": {
+    "blur": 2,
+    "canny_high": 220,
+    "canny_low": 110,
+    "min_area": 24.2,
+    "min_length": 14.4,
+    "smooth": 1,
+    "label": "Blur 2 \u00b7 Smooth 1 \u00b7 Canny High \u00d71.35 \u00b7 Canny Low 50% \u00b7 Lines \u00d71.8",
+    "chosen_at": "2026-04-27T20:32:04"
+  },
+  "002": {
+    "blur": 2,
+    "canny_high": 220,
+    "canny_low": 110,
+    "min_area": 24.1,
+    "min_length": 14.4,
+    "smooth": 1,
+    "label": "Blur 2 \u00b7 Smooth 1 \u00b7 Canny High \u00d71.35 \u00b7 Canny Low 50% \u00b7 Lines \u00d71.8",
+    "chosen_at": "2026-04-27T20:32:49"
+  },
+  "003": {
+    "blur": 2,
+    "canny_high": 220,
+    "canny_low": 72,
+    "min_area": 20.1,
+    "min_length": 4.4,
+    "smooth": 1,
+    "label": "Blur 2 \u00b7 Smooth 1 \u00b7 Canny High \u00d71.35 \u00b7 Canny Low 33% \u00b7 Lines \u00d70.55",
+    "chosen_at": "2026-04-27T20:34:33"
+  },
+  "004": {
+    "blur": 2,
+    "canny_high": 183,
+    "canny_low": 91,
+    "min_area": 28.3,
+    "min_length": 4.4,
+    "smooth": 1,
+    "label": "Blur 2 \u00b7 Smooth 1 \u00b7 Canny High \u00d71.8 \u00b7 Canny Low 50% \u00b7 Lines \u00d70.55",
+    "chosen_at": "2026-04-27T20:35:06"
+  },
+  "005": {
+    "blur": 1,
+    "canny_high": 216,
+    "canny_low": 108,
+    "min_area": 27.3,
+    "min_length": 32.0,
+    "smooth": 1,
+    "label": "Blur 1 \u00b7 Smooth 1 \u00b7 Canny High \u00d71.8 \u00b7 Canny Low 50% \u00b7 Lines \u00d74",
+    "chosen_at": "2026-04-27T20:45:37"
+  },
+  "006": {
+    "blur": 2,
+    "canny_high": 220,
+    "canny_low": 110,
+    "min_area": 20.4,
+    "min_length": 32.0,
+    "smooth": 1,
+    "label": "Blur 2 \u00b7 Smooth 1 \u00b7 Canny High \u00d71.35 \u00b7 Canny Low 50% \u00b7 Lines \u00d74",
+    "chosen_at": "2026-04-27T20:45:47"
+  },
+  "007": {
+    "blur": 2,
+    "canny_high": 216,
+    "canny_low": 108,
+    "min_area": 26.8,
+    "min_length": 4.4,
+    "smooth": 1,
+    "label": "Blur 2 \u00b7 Smooth 1 \u00b7 Canny High \u00d71.8 \u00b7 Canny Low 50% \u00b7 Lines \u00d70.55",
+    "chosen_at": "2026-04-27T20:46:04"
+  },
+  "008": {
+    "blur": 2,
+    "canny_high": 220,
+    "canny_low": 110,
+    "min_area": 26.4,
+    "min_length": 4.4,
+    "smooth": 1,
+    "label": "Blur 2 \u00b7 Smooth 1 \u00b7 Canny High \u00d71.35 \u00b7 Canny Low 50% \u00b7 Lines \u00d70.55",
+    "chosen_at": "2026-04-27T20:46:23"
+  },
+  "009": {
+    "blur": 1,
+    "canny_high": 220,
+    "canny_low": 110,
+    "min_area": 28.2,
+    "min_length": 14.4,
+    "smooth": 1,
+    "label": "Blur 1 \u00b7 Smooth 1 \u00b7 Canny High \u00d71.35 \u00b7 Canny Low 50% \u00b7 Lines \u00d71.8",
+    "chosen_at": "2026-04-27T20:52:46"
+  },
+  "010": {
+    "blur": 2,
+    "canny_high": 220,
+    "canny_low": 72,
+    "min_area": 25.9,
+    "min_length": 14.4,
+    "smooth": 1,
+    "label": "Blur 2 \u00b7 Smooth 1 \u00b7 Canny High \u00d71.35 \u00b7 Canny Low 33% \u00b7 Lines \u00d71.8",
+    "chosen_at": "2026-04-27T20:52:59"
+  },
+  "011": {
+    "blur": 2,
+    "canny_high": 90,
+    "canny_low": 29,
+    "min_area": 28.2,
+    "min_length": 32.0,
+    "smooth": 1,
+    "label": "Blur 2 \u00b7 Smooth 1 \u00b7 Canny High \u00d71.8 \u00b7 Canny Low 33% \u00b7 Lines \u00d74",
+    "chosen_at": "2026-04-27T20:53:16"
+  },
+  "012": {
+    "blur": 2,
+    "canny_high": 220,
+    "canny_low": 110,
+    "min_area": 23.5,
+    "min_length": 32.0,
+    "smooth": 1,
+    "label": "Blur 2 \u00b7 Smooth 1 \u00b7 Canny High \u00d71.35 \u00b7 Canny Low 50% \u00b7 Lines \u00d74",
+    "chosen_at": "2026-04-27T20:53:27"
+  },
+  "013": {
+    "blur": 2,
+    "canny_high": 117,
+    "canny_low": 58,
+    "min_area": 25.2,
+    "min_length": 32.0,
+    "smooth": 1,
+    "label": "Blur 2 \u00b7 Smooth 1 \u00b7 Canny High \u00d71.8 \u00b7 Canny Low 50% \u00b7 Lines \u00d74",
+    "chosen_at": "2026-04-27T20:53:44"
+  },
+  "014": {
+    "blur": 2,
+    "canny_high": 220,
+    "canny_low": 110,
+    "min_area": 17.3,
+    "min_length": 32.0,
+    "smooth": 1,
+    "label": "Blur 2 \u00b7 Smooth 1 \u00b7 Canny High \u00d71.35 \u00b7 Canny Low 50% \u00b7 Lines \u00d74",
+    "chosen_at": "2026-04-27T20:53:47"
+  },
+  "015": {
+    "blur": 2,
+    "canny_high": 220,
+    "canny_low": 110,
+    "min_area": 26.6,
+    "min_length": 32.0,
+    "smooth": 1,
+    "label": "Blur 2 \u00b7 Smooth 1 \u00b7 Canny High \u00d71.35 \u00b7 Canny Low 50% \u00b7 Lines \u00d74",
+    "chosen_at": "2026-04-27T20:54:05"
+  },
+  "016": {
+    "blur": 2,
+    "canny_high": 220,
+    "canny_low": 110,
+    "min_area": 27.8,
+    "min_length": 14.4,
+    "smooth": 1,
+    "label": "Blur 2 \u00b7 Smooth 1 \u00b7 Canny High \u00d71.35 \u00b7 Canny Low 50% \u00b7 Lines \u00d71.8",
+    "chosen_at": "2026-04-27T20:54:16"
+  },
+  "017": {
+    "blur": 2,
+    "canny_high": 220,
+    "canny_low": 110,
+    "min_area": 27.8,
+    "min_length": 32.0,
+    "smooth": 1,
+    "label": "Blur 2 \u00b7 Smooth 1 \u00b7 Canny High \u00d71.35 \u00b7 Canny Low 50% \u00b7 Lines \u00d74",
+    "chosen_at": "2026-04-27T20:54:46"
+  },
+  "018": {
+    "blur": 2,
+    "canny_high": 220,
+    "canny_low": 110,
+    "min_area": 27.1,
+    "min_length": 14.4,
+    "smooth": 1,
+    "label": "Blur 2 \u00b7 Smooth 1 \u00b7 Canny High \u00d71.35 \u00b7 Canny Low 50% \u00b7 Lines \u00d71.8",
+    "chosen_at": "2026-04-27T20:55:00"
+  },
+  "019": {
+    "blur": 2,
+    "canny_high": 174,
+    "canny_low": 34,
+    "min_area": 22.9,
+    "min_length": 14.4,
+    "smooth": 1,
+    "label": "Blur 2 \u00b7 Smooth 1 \u00b7 Canny High \u00d71.35 \u00b7 Canny Low 20% \u00b7 Lines \u00d71.8",
+    "chosen_at": "2026-04-27T20:55:15"
+  },
+  "020": {
+    "blur": 2,
+    "canny_high": 220,
+    "canny_low": 72,
+    "min_area": 25.5,
+    "min_length": 32.0,
+    "smooth": 1,
+    "label": "Blur 2 \u00b7 Smooth 1 \u00b7 Canny High \u00d71.35 \u00b7 Canny Low 33% \u00b7 Lines \u00d74",
+    "chosen_at": "2026-04-27T20:55:35"
+  },
+  "021": {
+    "blur": 2,
+    "canny_high": 216,
+    "canny_low": 71,
+    "min_area": 26.6,
+    "min_length": 14.4,
+    "smooth": 1,
+    "label": "Blur 2 \u00b7 Smooth 1 \u00b7 Canny High \u00d71.35 \u00b7 Canny Low 33% \u00b7 Lines \u00d71.8",
+    "chosen_at": "2026-04-27T20:56:03"
+  },
+  "022": {
+    "blur": 2,
+    "canny_high": 88,
+    "canny_low": 44,
+    "min_area": 24.0,
+    "min_length": 32.0,
+    "smooth": 1,
+    "label": "Blur 2 \u00b7 Smooth 1 \u00b7 Canny High \u00d70.4 \u00b7 Canny Low 50% \u00b7 Lines \u00d74",
+    "chosen_at": "2026-04-27T21:00:19"
+  },
+  "023": {
+    "blur": 2,
+    "canny_high": 220,
+    "canny_low": 44,
+    "min_area": 25.6,
+    "min_length": 32.0,
+    "smooth": 1,
+    "label": "Blur 2 \u00b7 Smooth 1 \u00b7 Canny High \u00d71.35 \u00b7 Canny Low 20% \u00b7 Lines \u00d74",
+    "chosen_at": "2026-04-27T21:00:28"
+  },
+  "024": {
+    "blur": 2,
+    "canny_high": 220,
+    "canny_low": 110,
+    "min_area": 28.6,
+    "min_length": 4.4,
+    "smooth": 1,
+    "label": "Blur 2 \u00b7 Smooth 1 \u00b7 Canny High \u00d71.35 \u00b7 Canny Low 50% \u00b7 Lines \u00d70.55",
+    "chosen_at": "2026-04-27T21:00:54"
+  },
+  "025": {
+    "blur": 4,
+    "canny_low": 18,
+    "canny_high": 90,
+    "smooth": 1,
+    "min_length": 4.4,
+    "min_area": 24.3,
+    "label": "Blur 4 \u00b7 Canny High 90 \u00b7 Canny Low 18 \u00b7 Lines 4.4",
+    "chosen_at": "2026-04-27T23:41:46"
+  },
+  "026": {
+    "blur": 2,
+    "canny_low": 45,
+    "canny_high": 90,
+    "smooth": 1,
+    "min_length": 4.4,
+    "min_area": 23.0,
+    "label": "Blur 2 \u00b7 Smooth 1 \u00b7 Canny High \u00d71.80 \u00b7 Canny Low 50% \u00b7 Lines \u00d70.55",
+    "chosen_at": "2026-04-27T19:38:34"
+  },
+  "027": {
+    "blur": 2,
+    "canny_low": 110,
+    "canny_high": 220,
+    "smooth": 1,
+    "min_length": 24.0,
+    "min_area": 28.4,
+    "label": "Blur 2 \u00b7 Smooth 1 \u00b7 Canny High \u00d71.35 \u00b7 Canny Low 50% \u00b7 Lines \u00d73.00",
+    "chosen_at": "2026-04-27T19:57:01"
+  },
+  "028": {
+    "blur": 2,
+    "canny_low": 72,
+    "canny_high": 220,
+    "smooth": 1,
+    "min_length": 32.0,
+    "min_area": 24.8,
+    "label": "Blur 2 \u00b7 Smooth 1 \u00b7 Canny High \u00d71.35 \u00b7 Canny Low 33% \u00b7 Lines \u00d74.00",
+    "chosen_at": "2026-04-27T20:00:14"
+  },
+  "029": {
+    "blur": 2,
+    "canny_low": 72,
+    "canny_high": 220,
+    "smooth": 1,
+    "min_length": 8.0,
+    "min_area": 24.8,
+    "label": "Blur 2 \u00b7 Smooth 1 \u00b7 Canny High \u00d71.80 \u00b7 Canny Low 33%",
+    "chosen_at": "2026-04-27T20:01:56"
+  },
+  "030": {
+    "blur": 3,
+    "canny_low": 108,
+    "canny_high": 216,
+    "smooth": 1,
+    "min_length": 4.4,
+    "min_area": 28.2,
+    "label": "Blur 3 \u00b7 Smooth 1 \u00b7 Canny High \u00d71.80 \u00b7 Canny Low 50% \u00b7 Lines \u00d70.55",
+    "chosen_at": "2026-04-27T20:04:36"
+  },
+  "031": {
+    "blur": 2,
+    "canny_low": 110,
+    "canny_high": 220,
+    "smooth": 1,
+    "min_length": 14.4,
+    "min_area": 26.7,
+    "label": "Blur 2 \u00b7 Smooth 1 \u00b7 Canny High \u00d71.35 \u00b7 Canny Low 50% \u00b7 Lines \u00d71.80",
+    "chosen_at": "2026-04-27T20:06:19"
+  },
+  "032": {
+    "blur": 2,
+    "canny_low": 110,
+    "canny_high": 220,
+    "smooth": 1,
+    "min_length": 24.0,
+    "min_area": 28.7,
+    "label": "Blur 2 \u00b7 Smooth 1 \u00b7 Canny High \u00d71.35 \u00b7 Canny Low 50% \u00b7 Lines \u00d73.00",
+    "chosen_at": "2026-04-27T20:08:43"
+  },
+  "033": {
+    "blur": 2,
+    "canny_low": 71,
+    "canny_high": 143,
+    "smooth": 1,
+    "min_length": 32.0,
+    "min_area": 28.8,
+    "label": "Blur 2 \u00b7 Smooth 1 \u00b7 Canny High \u00d70.65 \u00b7 Canny Low 50% \u00b7 Lines \u00d74.00",
+    "chosen_at": "2026-04-27T20:10:12"
+  },
+  "034": {
+    "blur": 2,
+    "canny_low": 110,
+    "canny_high": 220,
+    "smooth": 1,
+    "min_length": 24.0,
+    "min_area": 20.0,
+    "label": "Blur 2 \u00b7 Smooth 1 \u00b7 Canny High \u00d71.35 \u00b7 Canny Low 50% \u00b7 Lines \u00d73.00",
+    "chosen_at": "2026-04-27T20:11:35"
+  },
+  "035": {
+    "blur": 2,
+    "canny_low": 43,
+    "canny_high": 86,
+    "smooth": 1,
+    "min_length": 32.0,
+    "min_area": 26.0,
+    "label": "Blur 2 \u00b7 Smooth 1 \u00b7 Canny High \u00d71.80 \u00b7 Canny Low 50% \u00b7 Lines \u00d74.00",
+    "chosen_at": "2026-04-27T20:13:06"
+  },
+  "036": {
+    "blur": 2,
+    "canny_low": 45,
+    "canny_high": 90,
+    "smooth": 1,
+    "min_length": 32.0,
+    "min_area": 25.6,
+    "label": "Blur 2 \u00b7 Smooth 1 \u00b7 Canny High \u00d71.80 \u00b7 Canny Low 50% \u00b7 Lines \u00d74.00",
+    "chosen_at": "2026-04-27T20:14:07"
+  },
+  "037": {
+    "blur": 3,
+    "canny_low": 47,
+    "canny_high": 143,
+    "smooth": 1,
+    "min_length": 24.0,
+    "min_area": 23.0,
+    "label": "Blur 3 \u00b7 Smooth 1 \u00b7 Canny High \u00d70.65 \u00b7 Canny Low 33% \u00b7 Lines \u00d73.00",
+    "chosen_at": "2026-04-27T20:15:14"
+  },
+  "038": {
+    "blur": 3,
+    "canny_low": 10,
+    "canny_high": 88,
+    "smooth": 1,
+    "min_length": 24.0,
+    "min_area": 24.9,
+    "label": "Blur 3 \u00b7 Smooth 1 \u00b7 Canny High \u00d70.40 \u00b7 Canny Low 10% \u00b7 Lines \u00d73.00",
+    "chosen_at": "2026-04-27T20:16:10"
+  },
+  "039": {
+    "blur": 3,
+    "canny_low": 64,
+    "canny_high": 129,
+    "smooth": 1,
+    "min_length": 32.0,
+    "min_area": 24.5,
+    "label": "Blur 3 \u00b7 Smooth 1 \u00b7 Canny High \u00d71.80 \u00b7 Canny Low 50% \u00b7 Lines \u00d74.00",
+    "chosen_at": "2026-04-27T20:17:21"
+  },
+  "040": {
+    "blur": 2,
+    "canny_low": 24,
+    "canny_high": 49,
+    "smooth": 1,
+    "min_length": 32.0,
+    "min_area": 26.4,
+    "label": "Blur 2 \u00b7 Smooth 1 \u00b7 Canny High \u00d70.65 \u00b7 Canny Low 50% \u00b7 Lines \u00d74.00",
+    "chosen_at": "2026-04-27T20:20:15"
+  },
+  "041": {
+    "blur": 3,
+    "canny_low": 45,
+    "canny_high": 90,
+    "smooth": 1,
+    "min_length": 14.4,
+    "min_area": 24.4,
+    "label": "Blur 3 \u00b7 Smooth 1 \u00b7 Canny High \u00d71.80 \u00b7 Canny Low 50% \u00b7 Lines \u00d71.80",
+    "chosen_at": "2026-04-27T20:21:13"
+  },
+  "042": {
+    "blur": 3,
+    "canny_low": 108,
+    "canny_high": 216,
+    "smooth": 1,
+    "min_length": 4.4,
+    "min_area": 22.2,
+    "label": "Blur 3 \u00b7 Smooth 1 \u00b7 Canny High \u00d71.80 \u00b7 Canny Low 50% \u00b7 Lines \u00d70.55",
+    "chosen_at": "2026-04-27T20:22:34"
+  },
+  "043": {
+    "blur": 4,
+    "canny_low": 37,
+    "canny_high": 90,
+    "smooth": 1,
+    "min_length": 14.4,
+    "min_area": 28.7,
+    "label": "Blur 4 \u00b7 Canny High \u00d71.80 \u00b7 Canny Low 42% \u00b7 Lines \u00d71.80",
+    "chosen_at": "2026-04-27T22:45:38"
+  },
+  "044": {
+    "blur": 4,
+    "canny_low": 72,
+    "canny_high": 220,
+    "smooth": 1,
+    "min_length": 14.4,
+    "min_area": 21.2,
+    "label": "Blur 4 \u00b7 Canny High 220 \u00b7 Canny Low 72 \u00b7 Lines 14.4",
+    "chosen_at": "2026-04-27T22:57:40"
+  },
+  "045": {
+    "blur": 3,
+    "canny_low": 70,
+    "canny_high": 169,
+    "smooth": 1,
+    "min_length": 14.4,
+    "min_area": 23.5,
+    "label": "Blur 3 \u00b7 Canny High 169 \u00b7 Canny Low 70 \u00b7 Lines 14.4",
+    "chosen_at": "2026-04-27T22:59:43"
+  },
+  "046": {
+    "blur": 2,
+    "canny_low": 72,
+    "canny_high": 220,
+    "smooth": 1,
+    "min_length": 24.0,
+    "min_area": 21.2,
+    "label": "Blur 2 \u00b7 Canny High 220 \u00b7 Canny Low 72 \u00b7 Lines 24.0",
+    "chosen_at": "2026-04-27T23:18:33"
+  },
+  "047": {
+    "blur": 2,
+    "canny_low": 39,
+    "canny_high": 65,
+    "smooth": 1,
+    "min_length": 32.0,
+    "min_area": 24.3,
+    "label": "Blur 2 \u00b7 Canny High 65 \u00b7 Canny Low 39 \u00b7 Lines 32.0",
+    "chosen_at": "2026-04-27T23:20:04"
+  },
+  "048": {
+    "blur": 2,
+    "canny_low": 90,
+    "canny_high": 216,
+    "smooth": 1,
+    "min_length": 32.0,
+    "min_area": 27.3,
+    "label": "Blur 2 \u00b7 Canny High 216 \u00b7 Canny Low 90 \u00b7 Lines 32.0",
+    "chosen_at": "2026-04-27T23:21:32"
+  },
+  "049": {
+    "blur": 2,
+    "canny_low": 132,
+    "canny_high": 220,
+    "smooth": 1,
+    "min_length": 32.0,
+    "min_area": 16.9,
+    "label": "Blur 2 \u00b7 Canny High 220 \u00b7 Canny Low 132 \u00b7 Lines 32.0",
+    "chosen_at": "2026-04-27T23:22:52"
+  },
+  "050": {
+    "blur": 4,
+    "canny_low": 28,
+    "canny_high": 86,
+    "smooth": 1,
+    "min_length": 14.4,
+    "min_area": 24.0,
+    "label": "Blur 4 \u00b7 Canny High 86 \u00b7 Canny Low 28 \u00b7 Lines 14.4",
+    "chosen_at": "2026-04-27T23:24:49"
+  },
+  "051": {
+    "blur": 4,
+    "canny_low": 17,
+    "canny_high": 87,
+    "smooth": 1,
+    "min_length": 4.4,
+    "min_area": 24.9,
+    "label": "Blur 4 \u00b7 Canny High 87 \u00b7 Canny Low 17 \u00b7 Lines 4.4",
+    "chosen_at": "2026-04-27T23:27:50"
+  },
+  "052": {
+    "blur": 3,
+    "canny_low": 44,
+    "canny_high": 220,
+    "smooth": 1,
+    "min_length": 32.0,
+    "min_area": 24.2,
+    "label": "Blur 3 \u00b7 Canny High 220 \u00b7 Canny Low 44 \u00b7 Lines 32.0",
+    "chosen_at": "2026-04-27T23:29:22"
+  },
+  "053": {
+    "blur": 5,
+    "canny_low": 52,
+    "canny_high": 158,
+    "smooth": 1,
+    "min_length": 24.0,
+    "min_area": 23.2,
+    "label": "Blur 5 \u00b7 Canny High 158 \u00b7 Canny Low 52 \u00b7 Lines 24.0",
+    "chosen_at": "2026-04-27T23:31:00"
+  },
+  "054": {
+    "blur": 2,
+    "canny_high": 82,
+    "canny_low": 41,
+    "min_area": 24.6,
+    "min_length": 4.4,
+    "smooth": 1,
+    "label": "Blur 2 \u00b7 Smooth 1 \u00b7 Canny High \u00d71.8 \u00b7 Canny Low 50% \u00b7 Lines \u00d70.55",
+    "chosen_at": "2026-04-27T21:11:32"
+  },
+  "055": {
+    "blur": 5,
+    "canny_low": 129,
+    "canny_high": 216,
+    "smooth": 1,
+    "min_length": 24.0,
+    "min_area": 25.5,
+    "label": "Blur 5 \u00b7 Canny High 216 \u00b7 Canny Low 129 \u00b7 Lines 24.0",
+    "chosen_at": "2026-04-27T23:33:34"
+  },
+  "056": {
+    "blur": 3,
+    "canny_low": 123,
+    "canny_high": 206,
+    "smooth": 1,
+    "min_length": 24.0,
+    "min_area": 18.4,
+    "label": "Blur 3 \u00b7 Canny High 206 \u00b7 Canny Low 123 \u00b7 Lines 24.0",
+    "chosen_at": "2026-04-28T11:16:14"
+  },
+  "057": {
+    "blur": 5,
+    "canny_low": 132,
+    "canny_high": 220,
+    "smooth": 1,
+    "min_length": 14.4,
+    "min_area": 26.9,
+    "label": "Blur 5 \u00b7 Canny High 220 \u00b7 Canny Low 132 \u00b7 Lines 14.4",
+    "chosen_at": "2026-04-28T11:18:29"
+  },
+  "058": {
+    "blur": 3,
+    "canny_low": 126,
+    "canny_high": 210,
+    "smooth": 1,
+    "min_length": 4.4,
+    "min_area": 22.5,
+    "label": "Blur 3 \u00b7 Canny High 210 \u00b7 Canny Low 126 \u00b7 Lines 4.4",
+    "chosen_at": "2026-04-28T11:20:21"
+  },
+  "059": {
+    "blur": 4,
+    "canny_low": 72,
+    "canny_high": 220,
+    "smooth": 1,
+    "min_length": 24.0,
+    "min_area": 24.3,
+    "label": "Blur 4 \u00b7 Canny High 220 \u00b7 Canny Low 72 \u00b7 Lines 24.0",
+    "chosen_at": "2026-04-28T11:27:19"
+  },
+  "060": {
+    "blur": 4,
+    "canny_low": 72,
+    "canny_high": 220,
+    "smooth": 1,
+    "min_length": 24.0,
+    "min_area": 20.4,
+    "label": "Blur 4 \u00b7 Canny High 220 \u00b7 Canny Low 72 \u00b7 Lines 24.0",
+    "chosen_at": "2026-04-28T11:29:21"
+  },
+  "061": {
+    "blur": 2,
+    "canny_low": 132,
+    "canny_high": 220,
+    "smooth": 1,
+    "min_length": 32.0,
+    "min_area": 22.7,
+    "label": "Blur 2 \u00b7 Canny High 220 \u00b7 Canny Low 132 \u00b7 Lines 32.0",
+    "chosen_at": "2026-04-28T11:31:37"
+  },
+  "062": {
+    "blur": 5,
+    "canny_low": 92,
+    "canny_high": 220,
+    "smooth": 1,
+    "min_length": 4.4,
+    "min_area": 17.6,
+    "label": "Blur 5 \u00b7 Canny High 220 \u00b7 Canny Low 92 \u00b7 Lines 4.4",
+    "chosen_at": "2026-04-28T11:32:48"
+  },
+  "063": {
+    "blur": 2,
+    "canny_low": 72,
+    "canny_high": 216,
+    "smooth": 1,
+    "min_length": 24.0,
+    "min_area": 24.8,
+    "label": "default (median of all manually tuned settings)",
+    "chosen_at": null
+  },
+  "064": {
+    "blur": 2,
+    "canny_low": 72,
+    "canny_high": 216,
+    "smooth": 1,
+    "min_length": 24.0,
+    "min_area": 24.8,
+    "label": "default (median of all manually tuned settings)",
+    "chosen_at": null
+  },
+  "065": {
+    "blur": 2,
+    "canny_low": 72,
+    "canny_high": 216,
+    "smooth": 1,
+    "min_length": 24.0,
+    "min_area": 24.8,
+    "label": "default (median of all manually tuned settings)",
+    "chosen_at": null
+  },
+  "066": {
+    "blur": 2,
+    "canny_low": 72,
+    "canny_high": 216,
+    "smooth": 1,
+    "min_length": 24.0,
+    "min_area": 24.8,
+    "label": "default (median of all manually tuned settings)",
+    "chosen_at": null
+  },
+  "067": {
+    "blur": 2,
+    "canny_low": 72,
+    "canny_high": 216,
+    "smooth": 1,
+    "min_length": 24.0,
+    "min_area": 24.8,
+    "label": "default (median of all manually tuned settings)",
+    "chosen_at": null
+  },
+  "068": {
+    "blur": 2,
+    "canny_low": 72,
+    "canny_high": 216,
+    "smooth": 1,
+    "min_length": 24.0,
+    "min_area": 24.8,
+    "label": "default (median of all manually tuned settings)",
+    "chosen_at": null
+  },
+  "069": {
+    "blur": 5,
+    "canny_low": 10,
+    "canny_high": 48,
+    "smooth": 1,
+    "min_length": 4.4,
+    "min_area": 27.4,
+    "label": "Blur 5 \u00b7 Canny High 48 \u00b7 Canny Low 10 \u00b7 Lines 4.4",
+    "chosen_at": "2026-04-28T16:23:45"
+  },
+  "070": {
+    "blur": 2,
+    "canny_low": 72,
+    "canny_high": 216,
+    "smooth": 1,
+    "min_length": 24.0,
+    "min_area": 24.8,
+    "label": "default (median of all manually tuned settings)",
+    "chosen_at": null
+  },
+  "071": {
+    "blur": 2,
+    "canny_low": 72,
+    "canny_high": 216,
+    "smooth": 1,
+    "min_length": 24.0,
+    "min_area": 24.8,
+    "label": "default (median of all manually tuned settings)",
+    "chosen_at": null
+  },
+  "072": {
+    "blur": 2,
+    "canny_low": 72,
+    "canny_high": 216,
+    "smooth": 1,
+    "min_length": 24.0,
+    "min_area": 24.8,
+    "label": "default (median of all manually tuned settings)",
+    "chosen_at": null
+  },
+  "073": {
+    "blur": 2,
+    "canny_low": 72,
+    "canny_high": 216,
+    "smooth": 1,
+    "min_length": 24.0,
+    "min_area": 24.8,
+    "label": "default (median of all manually tuned settings)",
+    "chosen_at": null
+  },
+  "074": {
+    "blur": 2,
+    "canny_low": 72,
+    "canny_high": 216,
+    "smooth": 1,
+    "min_length": 24.0,
+    "min_area": 24.8,
+    "label": "default (median of all manually tuned settings)",
+    "chosen_at": null
+  },
+  "075": {
+    "blur": 2,
+    "canny_low": 72,
+    "canny_high": 216,
+    "smooth": 1,
+    "min_length": 24.0,
+    "min_area": 24.8,
+    "label": "default (median of all manually tuned settings)",
+    "chosen_at": null
+  },
+  "076": {
+    "blur": 2,
+    "canny_low": 72,
+    "canny_high": 216,
+    "smooth": 1,
+    "min_length": 24.0,
+    "min_area": 24.8,
+    "label": "default (median of all manually tuned settings)",
+    "chosen_at": null
+  },
+  "077": {
+    "blur": 2,
+    "canny_low": 72,
+    "canny_high": 216,
+    "smooth": 1,
+    "min_length": 24.0,
+    "min_area": 24.8,
+    "label": "default (median of all manually tuned settings)",
+    "chosen_at": null
+  },
+  "078": {
+    "blur": 2,
+    "canny_low": 72,
+    "canny_high": 216,
+    "smooth": 1,
+    "min_length": 24.0,
+    "min_area": 24.8,
+    "label": "default (median of all manually tuned settings)",
+    "chosen_at": null
+  },
+  "079": {
+    "blur": 4,
+    "canny_low": 22,
+    "canny_high": 113,
+    "smooth": 1,
+    "min_length": 4.4,
+    "min_area": 20.9,
+    "label": "Blur 4 \u00b7 Canny High 113 \u00b7 Canny Low 22 \u00b7 Lines 4.4",
+    "chosen_at": "2026-04-28T16:31:59"
+  },
+  "080": {
+    "blur": 2,
+    "canny_low": 72,
+    "canny_high": 216,
+    "smooth": 1,
+    "min_length": 4.4,
+    "min_area": 24.8,
+    "label": "default (median of all manually tuned settings)",
+    "chosen_at": null
+  },
+  "081": {
+    "blur": 2,
+    "canny_low": 72,
+    "canny_high": 216,
+    "smooth": 1,
+    "min_length": 4.4,
+    "min_area": 24.8,
+    "label": "default (median of all manually tuned settings)",
+    "chosen_at": null
+  },
+  "082": {
+    "blur": 2,
+    "canny_low": 72,
+    "canny_high": 216,
+    "smooth": 1,
+    "min_length": 4.4,
+    "min_area": 24.8,
+    "label": "default (median of all manually tuned settings)",
+    "chosen_at": null
+  },
+  "083": {
+    "blur": 2,
+    "canny_low": 72,
+    "canny_high": 216,
+    "smooth": 1,
+    "min_length": 24.0,
+    "min_area": 24.8,
+    "label": "default (median of all manually tuned settings)",
+    "chosen_at": null
+  },
+  "084": {
+    "blur": 2,
+    "canny_low": 72,
+    "canny_high": 216,
+    "smooth": 1,
+    "min_length": 24.0,
+    "min_area": 24.8,
+    "label": "default (median of all manually tuned settings)",
+    "chosen_at": null
+  },
+  "085": {
+    "blur": 2,
+    "canny_low": 72,
+    "canny_high": 216,
+    "smooth": 1,
+    "min_length": 4.0,
+    "min_area": 24.8,
+    "label": "default (median of all manually tuned settings)",
+    "chosen_at": null
+  },
+  "086": {
+    "blur": 2,
+    "canny_low": 72,
+    "canny_high": 216,
+    "smooth": 1,
+    "min_length": 24.0,
+    "min_area": 24.8,
+    "label": "default (median of all manually tuned settings)",
+    "chosen_at": null
+  },
+  "087": {
+    "blur": 2,
+    "canny_low": 72,
+    "canny_high": 216,
+    "smooth": 1,
+    "min_length": 24.0,
+    "min_area": 24.8,
+    "label": "default (median of all manually tuned settings)",
+    "chosen_at": null
+  },
+  "088": {
+    "blur": 2,
+    "canny_low": 72,
+    "canny_high": 216,
+    "smooth": 1,
+    "min_length": 24.0,
+    "min_area": 24.8,
+    "label": "default (median of all manually tuned settings)",
+    "chosen_at": null
+  },
+  "089": {
+    "blur": 2,
+    "canny_low": 28,
+    "canny_high": 143,
+    "smooth": 1,
+    "min_length": 24.0,
+    "min_area": 13.2,
+    "label": "Blur 2 \u00b7 Canny High 143 \u00b7 Canny Low 28 \u00b7 Lines 24.0",
+    "chosen_at": "2026-04-28T19:49:00"
+  },
+  "090": {
+    "blur": 2,
+    "canny_low": 72,
+    "canny_high": 216,
+    "smooth": 1,
+    "min_length": 24.0,
+    "min_area": 24.8,
+    "label": "default (median of all manually tuned settings)",
+    "chosen_at": null
+  },
+  "091": {
+    "blur": 2,
+    "canny_low": 72,
+    "canny_high": 216,
+    "smooth": 1,
+    "min_length": 24.0,
+    "min_area": 24.8,
+    "label": "default (median of all manually tuned settings)",
+    "chosen_at": null
+  },
+  "092": {
+    "blur": 2,
+    "canny_low": 72,
+    "canny_high": 216,
+    "smooth": 1,
+    "min_length": 24.0,
+    "min_area": 24.8,
+    "label": "default (median of all manually tuned settings)",
+    "chosen_at": null
+  },
+  "093": {
+    "blur": 2,
+    "canny_low": 72,
+    "canny_high": 216,
+    "smooth": 1,
+    "min_length": 24.0,
+    "min_area": 24.8,
+    "label": "default (median of all manually tuned settings)",
+    "chosen_at": null
+  },
+  "094": {
+    "blur": 2,
+    "canny_low": 72,
+    "canny_high": 216,
+    "smooth": 1,
+    "min_length": 24.0,
+    "min_area": 24.8,
+    "label": "default (median of all manually tuned settings)",
+    "chosen_at": null
+  },
+  "095": {
+    "blur": 4,
+    "canny_low": 38,
+    "canny_high": 91,
+    "smooth": 1,
+    "min_length": 24.0,
+    "min_area": 27.3,
+    "label": "Blur 4 \u00b7 Canny High 91 \u00b7 Canny Low 38 \u00b7 Lines 24.0",
+    "chosen_at": "2026-04-28T19:52:25"
+  },
+  "096": {
+    "blur": 2,
+    "canny_low": 72,
+    "canny_high": 216,
+    "smooth": 1,
+    "min_length": 24.0,
+    "min_area": 24.8,
+    "label": "default (median of all manually tuned settings)",
+    "chosen_at": null
+  },
+  "097": {
+    "blur": 2,
+    "canny_low": 72,
+    "canny_high": 216,
+    "smooth": 1,
+    "min_length": 24.0,
+    "min_area": 24.8,
+    "label": "default (median of all manually tuned settings)",
+    "chosen_at": null
+  },
+  "098": {
+    "blur": 2,
+    "canny_low": 72,
+    "canny_high": 216,
+    "smooth": 1,
+    "min_length": 24.0,
+    "min_area": 24.8,
+    "label": "default (median of all manually tuned settings)",
+    "chosen_at": null
+  },
+  "099": {
+    "blur": 2,
+    "canny_low": 72,
+    "canny_high": 216,
+    "smooth": 1,
+    "min_length": 24.0,
+    "min_area": 24.8,
+    "label": "default (median of all manually tuned settings)",
+    "chosen_at": null
+  },
+  "100": {
+    "blur": 2,
+    "canny_low": 72,
+    "canny_high": 216,
+    "smooth": 1,
+    "min_length": 24.0,
+    "min_area": 24.8,
+    "label": "default (median of all manually tuned settings)",
+    "chosen_at": null
+  },
+  "101": {
+    "blur": 2,
+    "canny_low": 72,
+    "canny_high": 216,
+    "smooth": 1,
+    "min_length": 24.0,
+    "min_area": 24.8,
+    "label": "default (median of all manually tuned settings)",
+    "chosen_at": null
+  },
+  "102": {
+    "blur": 2,
+    "canny_low": 72,
+    "canny_high": 216,
+    "smooth": 1,
+    "min_length": 24.0,
+    "min_area": 24.8,
+    "label": "default (median of all manually tuned settings)",
+    "chosen_at": null
+  },
+  "103": {
+    "blur": 2,
+    "canny_low": 72,
+    "canny_high": 216,
+    "smooth": 1,
+    "min_length": 24.0,
+    "min_area": 24.8,
+    "label": "default (median of all manually tuned settings)",
+    "chosen_at": null
+  },
+  "104": {
+    "blur": 2,
+    "canny_low": 72,
+    "canny_high": 216,
+    "smooth": 1,
+    "min_length": 24.0,
+    "min_area": 24.8,
+    "label": "default (median of all manually tuned settings)",
+    "chosen_at": null
+  },
+  "105": {
+    "blur": 2,
+    "canny_low": 72,
+    "canny_high": 216,
+    "smooth": 1,
+    "min_length": 24.0,
+    "min_area": 24.8,
+    "label": "default (median of all manually tuned settings)",
+    "chosen_at": null
+  },
+  "106": {
+    "blur": 2,
+    "canny_low": 72,
+    "canny_high": 216,
+    "smooth": 1,
+    "min_length": 24.0,
+    "min_area": 24.8,
+    "label": "default (median of all manually tuned settings)",
+    "chosen_at": null
+  },
+  "107": {
+    "blur": 2,
+    "canny_low": 72,
+    "canny_high": 216,
+    "smooth": 1,
+    "min_length": 24.0,
+    "min_area": 24.8,
+    "label": "default (median of all manually tuned settings)",
+    "chosen_at": null
+  },
+  "108": {
+    "blur": 2,
+    "canny_low": 72,
+    "canny_high": 216,
+    "smooth": 1,
+    "min_length": 24.0,
+    "min_area": 24.8,
+    "label": "default (median of all manually tuned settings)",
+    "chosen_at": null
+  },
+  "109": {
+    "blur": 2,
+    "canny_low": 72,
+    "canny_high": 216,
+    "smooth": 1,
+    "min_length": 24.0,
+    "min_area": 24.8,
+    "label": "default (median of all manually tuned settings)",
+    "chosen_at": null
+  },
+  "110": {
+    "blur": 2,
+    "canny_low": 72,
+    "canny_high": 216,
+    "smooth": 1,
+    "min_length": 24.0,
+    "min_area": 24.8,
+    "label": "default (median of all manually tuned settings)",
+    "chosen_at": null
+  },
+  "111": {
+    "blur": 2,
+    "canny_low": 72,
+    "canny_high": 216,
+    "smooth": 1,
+    "min_length": 24.0,
+    "min_area": 24.8,
+    "label": "default (median of all manually tuned settings)",
+    "chosen_at": null
+  },
+  "112": {
+    "blur": 2,
+    "canny_low": 72,
+    "canny_high": 216,
+    "smooth": 1,
+    "min_length": 24.0,
+    "min_area": 24.8,
+    "label": "default (median of all manually tuned settings)",
+    "chosen_at": null
+  },
+  "113": {
+    "blur": 2,
+    "canny_low": 72,
+    "canny_high": 216,
+    "smooth": 1,
+    "min_length": 24.0,
+    "min_area": 24.8,
+    "label": "default (median of all manually tuned settings)",
+    "chosen_at": null
+  },
+  "114": {
+    "blur": 2,
+    "canny_low": 72,
+    "canny_high": 216,
+    "smooth": 1,
+    "min_length": 24.0,
+    "min_area": 24.8,
+    "label": "default (median of all manually tuned settings)",
+    "chosen_at": null
+  },
+  "115": {
+    "blur": 2,
+    "canny_low": 72,
+    "canny_high": 216,
+    "smooth": 1,
+    "min_length": 24.0,
+    "min_area": 24.8,
+    "label": "default (median of all manually tuned settings)",
+    "chosen_at": null
+  },
+  "116": {
+    "blur": 2,
+    "canny_low": 72,
+    "canny_high": 216,
+    "smooth": 1,
+    "min_length": 24.0,
+    "min_area": 24.8,
+    "label": "default (median of all manually tuned settings)",
+    "chosen_at": null
+  },
+  "117": {
+    "blur": 2,
+    "canny_low": 72,
+    "canny_high": 216,
+    "smooth": 1,
+    "min_length": 24.0,
+    "min_area": 24.8,
+    "label": "default (median of all manually tuned settings)",
+    "chosen_at": null
+  },
+  "118": {
+    "blur": 2,
+    "canny_low": 72,
+    "canny_high": 216,
+    "smooth": 1,
+    "min_length": 24.0,
+    "min_area": 24.8,
+    "label": "default (median of all manually tuned settings)",
+    "chosen_at": null
+  },
+  "119": {
+    "blur": 2,
+    "canny_low": 72,
+    "canny_high": 216,
+    "smooth": 1,
+    "min_length": 24.0,
+    "min_area": 24.8,
+    "label": "default (median of all manually tuned settings)",
+    "chosen_at": null
+  },
+  "120": {
+    "blur": 2,
+    "canny_low": 72,
+    "canny_high": 216,
+    "smooth": 1,
+    "min_length": 24.0,
+    "min_area": 24.8,
+    "label": "default (median of all manually tuned settings)",
+    "chosen_at": null
+  },
+  "121": {
+    "blur": 2,
+    "canny_low": 72,
+    "canny_high": 216,
+    "smooth": 1,
+    "min_length": 24.0,
+    "min_area": 24.8,
+    "label": "default (median of all manually tuned settings)",
+    "chosen_at": null
+  },
+  "122": {
+    "blur": 2,
+    "canny_low": 72,
+    "canny_high": 216,
+    "smooth": 1,
+    "min_length": 24.0,
+    "min_area": 24.8,
+    "label": "default (median of all manually tuned settings)",
+    "chosen_at": null
+  },
+  "123": {
+    "blur": 3,
+    "canny_low": 92,
+    "canny_high": 220,
+    "smooth": 1,
+    "min_length": 32.0,
+    "min_area": 28.4,
+    "label": "Blur 3 \u00b7 Canny High 220 \u00b7 Canny Low 92 \u00b7 Lines 32.0",
+    "chosen_at": "2026-04-28T20:02:29"
+  },
+  "124": {
+    "blur": 2,
+    "canny_low": 72,
+    "canny_high": 216,
+    "smooth": 1,
+    "min_length": 24.0,
+    "min_area": 24.8,
+    "label": "default (median of all manually tuned settings)",
+    "chosen_at": null
+  },
+  "125": {
+    "blur": 5,
+    "canny_low": 44,
+    "canny_high": 220,
+    "smooth": 1,
+    "min_length": 24.0,
+    "min_area": 25.3,
+    "label": "Blur 5 \u00b7 Canny High 220 \u00b7 Canny Low 44 \u00b7 Lines 24.0",
+    "chosen_at": "2026-04-28T20:04:53"
+  },
+  "126": {
+    "blur": 2,
+    "canny_low": 72,
+    "canny_high": 216,
+    "smooth": 1,
+    "min_length": 24.0,
+    "min_area": 24.8,
+    "label": "default (median of all manually tuned settings)",
+    "chosen_at": null
+  },
+  "127": {
+    "blur": 2,
+    "canny_low": 72,
+    "canny_high": 216,
+    "smooth": 1,
+    "min_length": 24.0,
+    "min_area": 24.8,
+    "label": "default (median of all manually tuned settings)",
+    "chosen_at": null
+  },
+  "128": {
+    "blur": 2,
+    "canny_low": 72,
+    "canny_high": 216,
+    "smooth": 1,
+    "min_length": 24.0,
+    "min_area": 24.8,
+    "label": "default (median of all manually tuned settings)",
+    "chosen_at": null
+  },
+  "129": {
+    "blur": 2,
+    "canny_low": 72,
+    "canny_high": 216,
+    "smooth": 1,
+    "min_length": 24.0,
+    "min_area": 24.8,
+    "label": "default (median of all manually tuned settings)",
+    "chosen_at": null
+  },
+  "130": {
+    "blur": 2,
+    "canny_low": 72,
+    "canny_high": 216,
+    "smooth": 1,
+    "min_length": 24.0,
+    "min_area": 24.8,
+    "label": "default (median of all manually tuned settings)",
+    "chosen_at": null
+  },
+  "131": {
+    "blur": 2,
+    "canny_low": 72,
+    "canny_high": 216,
+    "smooth": 1,
+    "min_length": 24.0,
+    "min_area": 24.8,
+    "label": "default (median of all manually tuned settings)",
+    "chosen_at": null
+  },
+  "132": {
+    "blur": 2,
+    "canny_low": 72,
+    "canny_high": 216,
+    "smooth": 1,
+    "min_length": 24.0,
+    "min_area": 24.8,
+    "label": "default (median of all manually tuned settings)",
+    "chosen_at": null
+  },
+  "133": {
+    "blur": 2,
+    "canny_low": 72,
+    "canny_high": 216,
+    "smooth": 1,
+    "min_length": 24.0,
+    "min_area": 24.8,
+    "label": "default (median of all manually tuned settings)",
+    "chosen_at": null
+  },
+  "134": {
+    "blur": 2,
+    "canny_low": 72,
+    "canny_high": 216,
+    "smooth": 1,
+    "min_length": 24.0,
+    "min_area": 24.8,
+    "label": "default (median of all manually tuned settings)",
+    "chosen_at": null
+  },
+  "135": {
+    "blur": 2,
+    "canny_low": 72,
+    "canny_high": 216,
+    "smooth": 1,
+    "min_length": 24.0,
+    "min_area": 24.8,
+    "label": "default (median of all manually tuned settings)",
+    "chosen_at": null
+  },
+  "136": {
+    "blur": 2,
+    "canny_low": 72,
+    "canny_high": 216,
+    "smooth": 1,
+    "min_length": 24.0,
+    "min_area": 24.8,
+    "label": "default (median of all manually tuned settings)",
+    "chosen_at": null
+  },
+  "137": {
+    "blur": 2,
+    "canny_low": 72,
+    "canny_high": 216,
+    "smooth": 1,
+    "min_length": 24.0,
+    "min_area": 24.8,
+    "label": "default (median of all manually tuned settings)",
+    "chosen_at": null
+  },
+  "138": {
+    "blur": 4,
+    "canny_low": 85,
+    "canny_high": 143,
+    "smooth": 1,
+    "min_length": 24.0,
+    "min_area": 28.1,
+    "label": "Blur 4 \u00b7 Canny High 143 \u00b7 Canny Low 85 \u00b7 Lines 24.0",
+    "chosen_at": "2026-04-28T20:10:57"
+  },
+  "139": {
+    "blur": 2,
+    "canny_low": 72,
+    "canny_high": 216,
+    "smooth": 1,
+    "min_length": 24.0,
+    "min_area": 24.8,
+    "label": "default (median of all manually tuned settings)",
+    "chosen_at": null
+  },
+  "140": {
+    "blur": 2,
+    "canny_low": 72,
+    "canny_high": 216,
+    "smooth": 1,
+    "min_length": 24.0,
+    "min_area": 24.8,
+    "label": "default (median of all manually tuned settings)",
+    "chosen_at": null
+  },
+  "141": {
+    "blur": 2,
+    "canny_low": 72,
+    "canny_high": 216,
+    "smooth": 1,
+    "min_length": 24.0,
+    "min_area": 24.8,
+    "label": "default (median of all manually tuned settings)",
+    "chosen_at": null
+  },
+  "142": {
+    "blur": 5,
+    "canny_low": 72,
+    "canny_high": 220,
+    "smooth": 1,
+    "min_length": 14.4,
+    "min_area": 16.2,
+    "label": "Blur 5 \u00b7 Canny High 220 \u00b7 Canny Low 72 \u00b7 Lines 14.4",
+    "chosen_at": "2026-04-28T20:12:22"
+  },
+  "143": {
+    "blur": 2,
+    "canny_low": 72,
+    "canny_high": 216,
+    "smooth": 1,
+    "min_length": 24.0,
+    "min_area": 24.8,
+    "label": "default (median of all manually tuned settings)",
+    "chosen_at": null
+  },
+  "144": {
+    "blur": 2,
+    "canny_low": 72,
+    "canny_high": 216,
+    "smooth": 1,
+    "min_length": 24.0,
+    "min_area": 24.8,
+    "label": "default (median of all manually tuned settings)",
+    "chosen_at": null
+  },
+  "145": {
+    "blur": 2,
+    "canny_low": 72,
+    "canny_high": 216,
+    "smooth": 1,
+    "min_length": 24.0,
+    "min_area": 24.8,
+    "label": "default (median of all manually tuned settings)",
+    "chosen_at": null
+  },
+  "146": {
+    "blur": 2,
+    "canny_low": 72,
+    "canny_high": 216,
+    "smooth": 1,
+    "min_length": 24.0,
+    "min_area": 24.8,
+    "label": "default (median of all manually tuned settings)",
+    "chosen_at": null
+  },
+  "147": {
+    "blur": 2,
+    "canny_low": 72,
+    "canny_high": 216,
+    "smooth": 1,
+    "min_length": 24.0,
+    "min_area": 24.8,
+    "label": "default (median of all manually tuned settings)",
+    "chosen_at": null
+  },
+  "148": {
+    "blur": 2,
+    "canny_low": 72,
+    "canny_high": 216,
+    "smooth": 1,
+    "min_length": 24.0,
+    "min_area": 24.8,
+    "label": "default (median of all manually tuned settings)",
+    "chosen_at": null
+  },
+  "149": {
+    "blur": 2,
+    "canny_low": 72,
+    "canny_high": 216,
+    "smooth": 1,
+    "min_length": 24.0,
+    "min_area": 24.8,
+    "label": "default (median of all manually tuned settings)",
+    "chosen_at": null
+  },
+  "150": {
+    "blur": 2,
+    "canny_low": 88,
+    "canny_high": 176,
+    "smooth": 1,
+    "min_length": 32.0,
+    "min_area": 26.2,
+    "label": "Blur 2 \u00b7 Smooth 1 \u00b7 Canny High \u00d71.80 \u00b7 Canny Low 50% \u00b7 Lines \u00d74.00",
+    "chosen_at": "2026-04-27T19:28:33"
+  },
+  "151": {
+    "blur": 2,
+    "canny_low": 72,
+    "canny_high": 216,
+    "smooth": 1,
+    "min_length": 24.0,
+    "min_area": 24.8,
+    "label": "default (median of all manually tuned settings)",
+    "chosen_at": null
+  }
+}

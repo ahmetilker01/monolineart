@@ -161,6 +161,43 @@ export const generatePattern = (settings: PatternSettings, workspace: { w: numbe
           points.push({ x: sx1, y: sy1, isJump: true });
           points.push({ x: sx2, y: sy2, isJump: false });
       }
+  } else if (type === 'bursty_bezier') {
+      const pointsPerBurst = Math.max(3, Math.floor(growth || 9)); // Use growth parameter to control bursts
+      let cpRho = 0;
+      const maxCpRho = (loops || 1.4);
+      const offsetTheta = 0.2;
+      let currentTheta = 0;
+      const deltaTheta = 2 * Math.PI / pointsPerBurst;
+      
+      const evalBezier = (t: number, p0: Point, p1: Point, p2: Point, p3: Point) => {
+          const u = 1 - t;
+          return {
+              x: u*u*u*p0.x + 3*u*u*t*p1.x + 3*u*t*t*p2.x + t*t*t*p3.x,
+              y: u*u*u*p0.y + 3*u*u*t*p1.y + 3*u*t*t*p2.y + t*t*t*p3.y
+          };
+      };
+      
+      let curr = { x: outerRadius * Math.cos(0), y: outerRadius * Math.sin(0) };
+      
+      while (cpRho < maxCpRho) {
+          for (let i = 0; i < pointsPerBurst; i++) {
+              const endTheta = currentTheta + deltaTheta;
+              const end = { x: outerRadius * Math.cos(endTheta), y: outerRadius * Math.sin(endTheta) };
+              const cp1 = { x: cpRho * outerRadius * Math.cos(currentTheta + Math.PI - offsetTheta), y: cpRho * outerRadius * Math.sin(currentTheta + Math.PI - offsetTheta) };
+              const cp2 = { x: cpRho * outerRadius * Math.cos(endTheta + Math.PI + offsetTheta), y: cpRho * outerRadius * Math.sin(endTheta + Math.PI + offsetTheta) };
+              
+              for (let j = (i===0 && cpRho===0 ? 0 : 1); j <= 20; j++) {
+                  const pt = evalBezier(j/20, curr, cp1, cp2, end);
+                  // Apply rotation, scale and translation
+                  const sx = (pt.x * Math.cos(rotRad) - pt.y * Math.sin(rotRad)) * scale + cx;
+                  const sy = (pt.x * Math.sin(rotRad) + pt.y * Math.cos(rotRad)) * scale + cy;
+                  points.push({ x: sx, y: sy });
+              }
+              curr = end;
+              currentTheta += deltaTheta;
+          }
+          cpRho += 0.02;
+      }
   } else if (type === 'superformula') {
       const totalSteps = Math.floor(resolution * loops);
       const m_val = m || 6;
@@ -226,6 +263,86 @@ export const generatePattern = (settings: PatternSettings, workspace: { w: numbe
           const x = outerRadius * ( Math.cos(nn*t) + Math.cos(nm*t) );
           const y = innerRadius * ( Math.sin(nn*t) - Math.sin(nm*t) );
           
+          const sx = (x * Math.cos(rotRad) - y * Math.sin(rotRad)) * scale + cx;
+          const sy = (x * Math.sin(rotRad) + y * Math.cos(rotRad)) * scale + cy;
+          points.push({ x: sx, y: sy });
+      }
+  } else if (type === 'orbital') {
+      const apogee = outerRadius || 100;
+      const perigee = innerRadius || 10;
+      const totalSteps = Math.floor(resolution * loops) * 2;
+      const precession = (growth || 2.5) * (Math.PI / 180);
+      
+      for (let i = 0; i <= totalSteps; i++) {
+          const t = (i / totalSteps) * 2 * Math.PI * loops;
+          const precessedAngle = precession * (i / totalSteps) * loops * 10; 
+          
+          // An ellipse-like shape whose angle precesses
+          const r = (apogee - perigee) * Math.abs(Math.sin(t)) + perigee;
+          
+          const x = r * Math.cos(t + precessedAngle);
+          const y = r * Math.sin(t + precessedAngle);
+          
+          const sx = (x * Math.cos(rotRad) - y * Math.sin(rotRad)) * scale + cx;
+          const sy = (x * Math.sin(rotRad) + y * Math.cos(rotRad)) * scale + cy;
+          points.push({ x: sx, y: sy });
+      }
+  } else if (type === 'petalar') {
+      const numPetals = Math.max(1, Math.floor(growth || 12));
+      const totalSteps = Math.floor(resolution * loops * 2);
+      
+      for (let i = 0; i <= totalSteps; i++) {
+          const t = (i / totalSteps) * 2 * Math.PI * loops;
+          const decay = 1 - (i / totalSteps) * (1 - (innerRadius / outerRadius));
+          const rBase = outerRadius * decay;
+          
+          const petalEffect = Math.abs(Math.sin((t * numPetals) / 2));
+          const sharpness = (penOffset || 50) / 25; 
+          const r = rBase * (0.2 + 0.8 * Math.pow(petalEffect, sharpness));
+          
+          const x = r * Math.cos(t);
+          const y = r * Math.sin(t);
+          
+          const sx = (x * Math.cos(rotRad) - y * Math.sin(rotRad)) * scale + cx;
+          const sy = (x * Math.sin(rotRad) + y * Math.cos(rotRad)) * scale + cy;
+          points.push({ x: sx, y: sy });
+      }
+  } else if (['ellipse', 'semicircle', 'rectangle', 'diamond', 'trapezoid', 'cardioid', 'limacon', 'lemniscate', 'astroid', 'deltoid', 'nephroid', 'trefoil', 'quatrefoil', 'cinquefoil', 'figure8', 'infinity', 'torus2d', 'golden_spiral', 'teardrop', 'cross'].includes(type)) {
+      const totalSteps = Math.floor(resolution * loops) * 2;
+      const baseR = outerRadius;
+      for (let i = 0; i <= totalSteps; i++) {
+          const t = (i / totalSteps) * 2 * Math.PI * loops;
+          let nx = Math.cos(t), ny = Math.sin(t);
+          
+          if (type === 'ellipse') { nx = Math.cos(t); ny = 0.6 * Math.sin(t); }
+          else if (type === 'semicircle') { nx = Math.cos(t); ny = Math.max(0, Math.sin(t)); }
+          else if (type === 'cardioid') { const r = 1 + Math.cos(t); nx = r * Math.cos(t)/2; ny = r * Math.sin(t)/2; }
+          else if (type === 'limacon') { const r = 0.5 + Math.cos(t); nx = r * Math.cos(t)/1.5; ny = r * Math.sin(t)/1.5; }
+          else if (type === 'lemniscate') { const r2 = Math.cos(2*t); const r = r2 > 0 ? Math.sqrt(r2) : 0; nx = r * Math.cos(t); ny = r * Math.sin(t); }
+          else if (type === 'astroid') { nx = Math.pow(Math.cos(t), 3); ny = Math.pow(Math.sin(t), 3); }
+          else if (type === 'deltoid') { nx = (2*Math.cos(t)+Math.cos(2*t))/3; ny = (2*Math.sin(t)-Math.sin(2*t))/3; }
+          else if (type === 'nephroid') { nx = (3*Math.cos(t)-Math.cos(3*t))/4; ny = (3*Math.sin(t)-Math.sin(3*t))/4; }
+          else if (type === 'trefoil') { nx = (Math.sin(t)+2*Math.sin(2*t))/3; ny = (Math.cos(t)-2*Math.cos(2*t))/3; }
+          else if (type === 'quatrefoil') { const r = Math.abs(Math.cos(2*t)); nx = r * Math.cos(t); ny = r * Math.sin(t); }
+          else if (type === 'cinquefoil') { nx = (Math.sin(t)+2*Math.sin(3*t))/3; ny = (Math.cos(t)-2*Math.cos(3*t))/3; }
+          else if (type === 'figure8') { nx = Math.sin(t); ny = Math.sin(2*t)/2; }
+          else if (type === 'infinity') { nx = Math.sin(2*t)/2; ny = Math.sin(t); }
+          else if (type === 'torus2d') { const r = 0.7 + 0.3 * Math.cos(5*t); nx = r * Math.cos(t); ny = r * Math.sin(t); }
+          else if (type === 'golden_spiral') { const r = Math.pow(1.618, t / (Math.PI*2)) / Math.pow(1.618, Math.max(1, loops)); nx = r * Math.cos(t); ny = r * Math.sin(t); }
+          else if (type === 'teardrop') { nx = Math.cos(t); ny = Math.sin(t) * Math.pow(Math.sin(t/2), 2); }
+          else if (type === 'cross') { const r = Math.pow(Math.cos(2*t), 2); nx = r * Math.cos(t); ny = r * Math.sin(t); }
+          else {
+              const n = (type === 'diamond' ? 1 : (type === 'rectangle' ? 10 : 2));
+              const c = Math.cos(t), s = Math.sin(t);
+              const dc = Math.pow(Math.abs(c), n);
+              const ds = Math.pow(Math.abs(s), n);
+              // Wait, rectangle eq: |x|^n + |y|^n = 1 => r = 1 / ( |c|^n + |s|^n )^(1/n)
+              const real_r = 1 / Math.pow(dc + ds, 1/n);
+              nx = real_r * c; ny = real_r * s;
+          }
+          
+          const x = nx * baseR;
+          const y = ny * baseR;
           const sx = (x * Math.cos(rotRad) - y * Math.sin(rotRad)) * scale + cx;
           const sy = (x * Math.sin(rotRad) + y * Math.cos(rotRad)) * scale + cy;
           points.push({ x: sx, y: sy });
@@ -828,6 +945,160 @@ const generateCounterPath = (imageData: ImageData, settings: GCodeSettings): Poi
   return settings.smoothing > 0 ? smoothPath(path, 1) : path;
 };
 
+function generateWavySpiral(imageData: ImageData, settings: GCodeSettings): Point[] {
+    const width = imageData.width;
+    const height = imageData.height;
+    const cx = width / 2;
+    const cy = height / 2;
+    const maxR = Math.min(width, height) / 2;
+    const spacing = settings.fillSpacing || 4; 
+    const loops = Math.max(1, maxR / spacing);
+    const thr = settings.threshold || 128;
+    const invert = settings.invert || false;
+    const wobbleAmp = spacing * 0.45; 
+    
+    let points: Point[] = [];
+    const totalSteps = Math.floor(loops * 100 * (spacing < 5 ? 2 : 1)); 
+    
+    for(let i=0; i<=totalSteps; i++) {
+        const t = (i/totalSteps) * 2 * Math.PI * loops;
+        const baseR = (t / (2 * Math.PI)) * spacing; 
+        
+        const px = Math.floor(cx + Math.cos(t) * baseR);
+        const py = Math.floor(cy + Math.sin(t) * baseR);
+        
+        let intensity = 0;
+        if (px >= 0 && px < width && py >= 0 && py < height) {
+            const idx = (py * width + px) * 4;
+            const rVal = imageData.data[idx];
+            const gVal = imageData.data[idx+1];
+            const bVal = imageData.data[idx+2];
+            let luma = 0.299*rVal + 0.587*gVal + 0.114*bVal;
+            if (invert) luma = 255 - luma;
+            intensity = 1 - (luma / 255); 
+            if (luma >= thr) intensity = 0;
+        }
+        
+        const rMod = baseR + Math.sin(t * 200) * wobbleAmp * Math.pow(intensity, 2);
+        
+        const x = cx + Math.cos(t) * rMod;
+        const y = cy + Math.sin(t) * rMod;
+        
+        points.push({x, y});
+    }
+    return points;
+}
+
+function generateSandArt(imageData: ImageData, settings: GCodeSettings): Point[] {
+    const { width, height } = imageData;
+    const points = detectEdges(imageData, settings.threshold, 1.0);
+    const thinned = thinPoints(points, width, height);
+
+    const grid = new Uint8Array(width * height);
+    for (const p of thinned) {
+        if (p.x >= 0 && p.x < width && p.y >= 0 && p.y < height) {
+            grid[Math.floor(p.y) * width + Math.floor(p.x)] = 1;
+        }
+    }
+
+    const paths: Point[][] = [];
+    const DIRS = [ [1,0], [1,1], [0,1], [-1,1], [-1,0], [-1,-1], [0,-1], [1,-1] ];
+
+    for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+            if (grid[y * width + x] === 1) {
+                const path: Point[] = [];
+                let cx = x, cy = y;
+                while (true) {
+                    path.push({ x: cx, y: cy });
+                    grid[cy * width + cx] = 0; 
+
+                    let next = null;
+                    for (let i = 0; i < 8; i++) {
+                        const nx = cx + DIRS[i][0];
+                        const ny = cy + DIRS[i][1];
+                        if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+                            if (grid[ny * width + nx] === 1) {
+                                next = { x: nx, y: ny };
+                                break;
+                            }
+                        }
+                    }
+                    if (next) {
+                        cx = next.x; cy = next.y;
+                    } else break;
+                }
+                if (path.length > 5) paths.push(path);
+            }
+        }
+    }
+
+    if (paths.length === 0) return [];
+    
+    paths.sort((a, b) => b.length - a.length);
+    
+    const trunk: Point[] = [...paths[0]];
+    const unvisited = paths.slice(1);
+    
+    while (unvisited.length > 0) {
+        let bestDist = Infinity;
+        let bestTrunkIdx = -1;
+        let bestPathIdx = -1;
+        let bestPathPointIdx = -1;
+        
+        for (let i = 0; i < unvisited.length; i++) {
+            const p = unvisited[i];
+            const pStep = Math.max(1, Math.floor(p.length / 5)); 
+            for (let j = 0; j < p.length; j += pStep) {
+                const tStep = Math.max(1, Math.floor(trunk.length / 20)); 
+                for (let k = 0; k < trunk.length; k += tStep) {
+                    const dx = p[j].x - trunk[k].x;
+                    const dy = p[j].y - trunk[k].y;
+                    const d = dx*dx + dy*dy;
+                    if (d < bestDist) {
+                        bestDist = d;
+                        bestTrunkIdx = k;
+                        bestPathIdx = i;
+                        bestPathPointIdx = j;
+                    }
+                }
+            }
+        }
+        
+        if (bestPathIdx === -1) break;
+        
+        const p = unvisited[bestPathIdx];
+        bestDist = Infinity;
+        const searchRange = Math.max(20, Math.floor(trunk.length / 10));
+        let localTrunkStart = Math.max(0, bestTrunkIdx - searchRange);
+        let localTrunkEnd = Math.min(trunk.length - 1, bestTrunkIdx + searchRange);
+        
+        for (let j = 0; j < p.length; j++) {
+            for (let k = localTrunkStart; k <= localTrunkEnd; k++) {
+                const dx = p[j].x - trunk[k].x;
+                const dy = p[j].y - trunk[k].y;
+                const d = dx*dx + dy*dy;
+                if (d < bestDist) {
+                    bestDist = d;
+                    bestTrunkIdx = k;
+                    bestPathPointIdx = j;
+                }
+            }
+        }
+        
+        const splicedPath: Point[] = [];
+        for(let j = bestPathPointIdx; j < p.length; j++) splicedPath.push({ ...p[j] });
+        for(let j = p.length - 1; j >= 0; j--) splicedPath.push({ ...p[j] });
+        for(let j = 0; j <= bestPathPointIdx; j++) splicedPath.push({ ...p[j] });
+        
+        splicedPath.push({ ...trunk[bestTrunkIdx] });
+        trunk.splice(bestTrunkIdx, 0, ...splicedPath);
+        unvisited.splice(bestPathIdx, 1);
+    }
+    
+    return trunk;
+}
+
 export const processImageToSingleLine = (
   imageData: ImageData,
   settings: GCodeSettings,
@@ -836,6 +1107,14 @@ export const processImageToSingleLine = (
   let points: Point[] = [];
   if (settings.processingMode === 'counter') {
       points = generateCounterPath(imageData, settings);
+      return settings.smoothing > 0 ? smoothPath(points, 1) : points;
+  }
+  if (settings.processingMode === 'sandart') {
+      points = generateSandArt(imageData, settings);
+      return settings.smoothing > 0 ? smoothPath(points, 1) : points;
+  }
+  if (settings.processingMode === 'wavy_spiral') {
+      points = generateWavySpiral(imageData, settings);
       return settings.smoothing > 0 ? smoothPath(points, 1) : points;
   }
   if (settings.processingMode === 'fill') {

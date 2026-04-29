@@ -795,15 +795,17 @@ const App: React.FC = () => {
                     <h3 className="text-slate-200 text-sm font-semibold">Drawing Settings</h3>
                  </div>
                  <div className="space-y-4">
-                    <div className="grid grid-cols-3 gap-1 p-1 bg-slate-950 rounded-lg border border-slate-800">
-                        <button onClick={() => setSettings({...settings, processingMode: 'outline'})} className={`text-[10px] font-bold py-2 rounded-md transition-all ${settings.processingMode === 'outline' ? 'bg-sky-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}>OUTLINE</button>
-                        <button onClick={() => setSettings({...settings, processingMode: 'counter'})} className={`text-[10px] font-bold py-2 rounded-md transition-all ${settings.processingMode === 'counter' ? 'bg-sky-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}>COUNTER</button>
-                        <button onClick={() => setSettings({...settings, processingMode: 'fill'})} className={`text-[10px] font-bold py-2 rounded-md transition-all ${settings.processingMode === 'fill' ? 'bg-sky-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}>FILL</button>
+                    <div className="grid grid-cols-5 gap-1 p-1 bg-slate-950 rounded-lg border border-slate-800">
+                        <button onClick={() => setSettings({...settings, processingMode: 'outline'})} className={`text-[9px] font-bold py-2 rounded-md transition-all ${settings.processingMode === 'outline' ? 'bg-sky-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}>OUTLINE</button>
+                        <button onClick={() => setSettings({...settings, processingMode: 'counter'})} className={`text-[9px] font-bold py-2 rounded-md transition-all ${settings.processingMode === 'counter' ? 'bg-sky-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}>COUNTER</button>
+                        <button onClick={() => setSettings({...settings, processingMode: 'fill'})} className={`text-[9px] font-bold py-2 rounded-md transition-all ${settings.processingMode === 'fill' ? 'bg-sky-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}>FILL</button>
+                        <button onClick={() => setSettings({...settings, processingMode: 'wavy_spiral'})} className={`text-[9px] font-bold py-2 rounded-md transition-all ${settings.processingMode === 'wavy_spiral' ? 'bg-sky-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}>WAVY</button>
+                        <button onClick={() => setSettings({...settings, processingMode: 'sandart'})} className={`text-[9px] font-bold py-2 rounded-md transition-all ${settings.processingMode === 'sandart' ? 'bg-sky-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}>SANDART</button>
                     </div>
                     <div className="space-y-1">
                         <SliderControl label="Sensitivity" min={50} max={250} step={1} value={settings.threshold} onChange={v => setSettings({...settings, threshold: v})} color="sky" />
                     </div>
-                    {(settings.processingMode === 'fill' || settings.processingMode === 'counter') && (
+                    {(settings.processingMode === 'fill' || settings.processingMode === 'counter' || settings.processingMode === 'wavy_spiral') && (
                       <div className="space-y-3 mt-3 border-t border-slate-800 pt-3">
                           {settings.processingMode === 'fill' && (
                             <div>
@@ -870,11 +872,12 @@ const App: React.FC = () => {
                     <div>
                         <label className="text-[10px] text-slate-500 font-bold uppercase block mb-1">Pattern Type</label>
                         <div className="grid grid-cols-2 lg:grid-cols-4 gap-1 font-bold text-[9px]">
-                           {(['spirograph', 'hypotrochoid', 'epitrochoid', 'lissajous', 'spiral', 'polygon', 'star', 'heart', 'rose', 'phyllotaxis', 'modulo', 'superformula', 'fractal_tree', 'chladni_plate', 'text'] as PatternType[]).map(t => (
+                           {(['spirograph', 'hypotrochoid', 'epitrochoid', 'lissajous', 'spiral', 'polygon', 'star', 'heart', 'rose', 'phyllotaxis', 'modulo', 'superformula', 'fractal_tree', 'chladni_plate', 'petalar', 'orbital', 'ellipse', 'semicircle', 'rectangle', 'diamond', 'trapezoid', 'cardioid', 'limacon', 'lemniscate', 'astroid', 'deltoid', 'nephroid', 'trefoil', 'quatrefoil', 'cinquefoil', 'figure8', 'infinity', 'torus2d', 'golden_spiral', 'teardrop', 'cross', 'bursty_bezier', 'text'] as PatternType[]).map(t => (
                               <button 
                                 key={t}
                                 onClick={() => updateActiveLayer({ type: t })}
-                                className={`py-2 px-1 rounded uppercase tracking-tighter ${activeLayer.type === t ? 'bg-amber-600 text-white' : 'bg-slate-950 text-slate-500 border border-slate-800'}`}
+                                className={`py-2 px-1 rounded uppercase tracking-tighter truncate ${activeLayer.type === t ? 'bg-amber-600 text-white' : 'bg-slate-950 text-slate-500 hover:bg-slate-900 border border-slate-800'}`}
+                                title={t}
                               >
                                 {t === 'spirograph' ? 'spiro' : (t === 'hypotrochoid' ? 'hypo' : (t === 'epitrochoid' ? 'epi' : (t === 'phyllotaxis' ? 'phylla' : (t === 'superformula' ? 'super' : (t === 'fractal_tree' ? 'fractal' : (t === 'chladni_plate' ? 'chladni' : t))))))}
                               </button>
@@ -953,11 +956,11 @@ const App: React.FC = () => {
                        </div>
                     )}
 
-                    {activeLayer.type === 'spirograph' && (
+                    {(activeLayer.type === 'spirograph' || activeLayer.type === 'orbital' || activeLayer.type === 'petalar') && (
                        <div className="space-y-3 p-3 bg-slate-950 border border-slate-800 rounded-lg">
-                          <SliderControl label="Outer Radius" min={10} max={300} step={1} value={activeLayer.outerRadius} onChange={v => updateActiveLayer({ outerRadius: v })} />
-                          <SliderControl label="Inner Radius" min={1} max={300} step={1} value={activeLayer.innerRadius} onChange={v => updateActiveLayer({ innerRadius: v })} />
-                          <SliderControl label="Pen Offset" min={1} max={300} step={1} value={activeLayer.penOffset} onChange={v => updateActiveLayer({ penOffset: v })} />
+                          <SliderControl label="Outer Radius (Apogee)" min={10} max={300} step={1} value={activeLayer.outerRadius} onChange={v => updateActiveLayer({ outerRadius: v })} />
+                          <SliderControl label="Inner Radius (Perigee)" min={1} max={300} step={1} value={activeLayer.innerRadius} onChange={v => updateActiveLayer({ innerRadius: v })} />
+                          <SliderControl label={activeLayer.type === 'petalar' ? 'Petal Sharpness' : 'Pen Offset'} min={1} max={300} step={1} value={activeLayer.penOffset} onChange={v => updateActiveLayer({ penOffset: v })} />
                        </div>
                     )}
 
@@ -968,13 +971,13 @@ const App: React.FC = () => {
                        </div>
                     )}
 
-                    {(activeLayer.type === 'spiral' || activeLayer.type === 'polygon' || activeLayer.type === 'star' || activeLayer.type === 'rose' || activeLayer.type === 'phyllotaxis') && (
+                    {(activeLayer.type === 'spiral' || activeLayer.type === 'polygon' || activeLayer.type === 'star' || activeLayer.type === 'rose' || activeLayer.type === 'phyllotaxis' || activeLayer.type === 'petalar' || activeLayer.type === 'orbital') && (
                        <div className="space-y-3 p-3 bg-slate-950 border border-slate-800 rounded-lg">
                           <SliderControl 
-                             label={activeLayer.type === 'spiral' || activeLayer.type === 'phyllotaxis' ? 'Growth Rate' : (activeLayer.type === 'star' ? 'Points' : (activeLayer.type === 'rose' ? 'Petals (k-value)' : 'Sides'))}
-                             min={activeLayer.type === 'spiral' || activeLayer.type === 'phyllotaxis' ? 0.1 : (activeLayer.type === 'rose' ? 1 : 3)} 
-                             max={activeLayer.type === 'spiral' || activeLayer.type === 'phyllotaxis' ? 50 : (activeLayer.type === 'star' ? 30 : 20)} 
-                             step={activeLayer.type === 'spiral' || activeLayer.type === 'phyllotaxis' ? 0.1 : 1}
+                             label={activeLayer.type === 'spiral' || activeLayer.type === 'phyllotaxis' ? 'Growth Rate' : (activeLayer.type === 'petalar' ? 'Num Petals' : (activeLayer.type === 'orbital' ? 'Precession' : (activeLayer.type === 'star' ? 'Points' : (activeLayer.type === 'rose' ? 'Petals (k-value)' : 'Sides'))))}
+                             min={activeLayer.type === 'spiral' || activeLayer.type === 'phyllotaxis' || activeLayer.type === 'orbital' ? 0.1 : (activeLayer.type === 'rose' || activeLayer.type === 'petalar' ? 1 : 3)} 
+                             max={activeLayer.type === 'spiral' || activeLayer.type === 'phyllotaxis' || activeLayer.type === 'orbital' ? 50 : (activeLayer.type === 'star' ? 30 : (activeLayer.type === 'petalar' ? 100 : 20))} 
+                             step={activeLayer.type === 'spiral' || activeLayer.type === 'phyllotaxis' || activeLayer.type === 'orbital' ? 0.1 : 1}
                              value={activeLayer.growth}
                              onChange={v => updateActiveLayer({ growth: v })}
                           />

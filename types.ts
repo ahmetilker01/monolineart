@@ -6,13 +6,13 @@ export interface Point {
 }
 
 export type StartLocation = 'center' | 'topLeft' | 'topRight' | 'bottomLeft' | 'bottomRight' | 'custom';
-export type ProcessingMode = 'outline' | 'fill' | 'counter';
+export type ProcessingMode = 'outline' | 'fill' | 'counter' | 'wavy_spiral' | 'sandart';
 export type FillStyle = 'linear' | 'scribble' | 'contour';
 export type WorkspaceType = 'rectangular' | 'circular';
 export type PathStartPreference = 'original' | 'center' | 'edge';
 export type PathEndPreference = 'original' | 'center' | 'edge';
 
-export type PatternType = 'spirograph' | 'lissajous' | 'spiral' | 'polygon' | 'star' | 'heart' | 'rose' | 'text' | 'phyllotaxis' | 'modulo' | 'hypotrochoid' | 'epitrochoid' | 'fractal_tree' | 'superformula' | 'chladni_plate';
+export type PatternType = 'spirograph' | 'lissajous' | 'spiral' | 'polygon' | 'star' | 'heart' | 'rose' | 'text' | 'phyllotaxis' | 'modulo' | 'hypotrochoid' | 'epitrochoid' | 'fractal_tree' | 'superformula' | 'chladni_plate' | 'petalar' | 'orbital' | 'ellipse' | 'semicircle' | 'rectangle' | 'diamond' | 'trapezoid' | 'cardioid' | 'limacon' | 'lemniscate' | 'astroid' | 'deltoid' | 'nephroid' | 'trefoil' | 'quatrefoil' | 'cinquefoil' | 'figure8' | 'infinity' | 'torus2d' | 'golden_spiral' | 'teardrop' | 'cross' | 'bursty_bezier';
 
 export interface PatternSettings {
   id: string;

@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Spirograph — Dune Weaver</title>
+<style>
+  :root {
+    --bg: hsl(0 0% 10%);
+    --fg: hsl(210 40% 98%);
+    --card: hsl(0 0% 18%);
+    --border: hsl(0 0% 32%);
+    --muted: hsl(215 20.2% 65.1%);
+    --primary: hsl(207 90% 50%);
+    --primary-fg: hsl(210 40% 98%);
+    --radius: 0.5rem;
+    --font: 'Plus Jakarta Sans', 'Noto Sans', system-ui, -apple-system, sans-serif;
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg: hsl(220 14% 98%);
+      --fg: hsl(222.2 84% 4.9%);
+      --card: hsl(0 0% 100%);
+      --border: hsl(214.3 31.8% 91.4%);
+      --muted: hsl(215.4 16.3% 46.9%);
+    }
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    height: 100%; width: 100%;
+    background: var(--bg); color: var(--fg);
+    font-family: var(--font);
+    overflow-x: hidden;
+  }
+  .container { max-width: 600px; margin: 0 auto; padding: 12px; }
+  h1 { font-size: 1.25rem; font-weight: 700; margin-bottom: 12px; }
+  label { font-size: 0.7rem; color: var(--muted); display: block; margin-bottom: 2px; }
+  select, input[type=number] {
+    width: 100%; height: 28px; font-size: 0.8rem;
+    background: var(--card); color: var(--fg); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 0 6px; outline: none;
+  }
+  input[type=range] { width: 100%; accent-color: var(--primary); }
+  .row { display: flex; gap: 8px; margin-bottom: 8px; }
+  .col { flex: 1; }
+  .slider-row { display: flex; align-items: center; gap: 6px; }
+  .slider-row input[type=number] { width: 60px; flex-shrink: 0; text-align: right; }
+  .slider-row input[type=range] { flex: 1; }
+  canvas { width: 100%; aspect-ratio: 1; display: block; margin: 8px 0; }
+  .buttons { display: flex; gap: 8px; margin-top: 8px; }
+  .btn {
+    flex: 1; padding: 10px; border: none; border-radius: var(--radius);
+    font-size: 0.9rem; font-weight: 600; font-family: var(--font);
+    cursor: pointer; transition: opacity 0.15s;
+  }
+  .btn:active { opacity: 0.8; }
+  .btn-primary { background: var(--primary); color: var(--primary-fg); }
+  .btn-secondary { background: var(--border); color: var(--fg); }
+  .info { font-size: 0.65rem; color: var(--muted); text-align: center; margin-top: 4px; }
+  .toast {
+    position: fixed; top: 16px; left: 50%; transform: translateX(-50%);
+    background: var(--card); color: var(--fg); border: 1px solid var(--border);
+    padding: 8px 16px; border-radius: var(--radius); font-size: 0.85rem;
+    z-index: 100; opacity: 0; transition: opacity 0.3s; pointer-events: none;
+  }
+  .toast.show { opacity: 1; }
+  optgroup { font-weight: bold; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>Spirograph</h1>
+
+  <label>Shape</label>
+  <select id="shape"></select>
+
+  <div class="row" style="margin-top:8px">
+    <div class="col">
+      <label>Size</label>
+      <div class="slider-row">
+        <input type="range" id="size" min="0.1" max="1" step="0.001" value="0.5">
+        <input type="number" id="sizeNum" min="0.1" max="1" step="0.001" value="0.5">
+      </div>
+    </div>
+    <div class="col">
+      <label>Iterations</label>
+      <div class="slider-row">
+        <input type="range" id="iterations" min="1" max="200" step="1" value="20">
+        <input type="number" id="iterationsNum" min="1" max="200" step="1" value="20">
+      </div>
+    </div>
+  </div>
+  <div class="row">
+    <div class="col">
+      <label>Rotation°</label>
+      <div class="slider-row">
+        <input type="range" id="rotation" min="-180" max="180" step="0.001" value="0">
+        <input type="number" id="rotationNum" min="-180" max="180" step="0.001" value="0">
+      </div>
+    </div>
+    <div class="col">
+      <label>Scale</label>
+      <div class="slider-row">
+        <input type="range" id="scale" min="0.8" max="1.2" step="0.001" value="1">
+        <input type="number" id="scaleNum" min="0.8" max="1.2" step="0.001" value="1">
+      </div>
+    </div>
+  </div>
+  <div class="row">
+    <div class="col">
+      <label>θ Drift</label>
+      <div class="slider-row">
+        <input type="range" id="thetaDrift" min="-0.5" max="0.5" step="0.001" value="0">
+        <input type="number" id="thetaDriftNum" min="-0.5" max="0.5" step="0.001" value="0">
+      </div>
+    </div>
+    <div class="col">
+      <label>ρ Drift</label>
+      <div class="slider-row">
+        <input type="range" id="rhoDrift" min="-0.1" max="0.1" step="0.001" value="0">
+        <input type="number" id="rhoDriftNum" min="-0.1" max="0.1" step="0.001" value="0">
+      </div>
+    </div>
+  </div>
+  <div>
+    <label>Points/shape</label>
+    <div class="slider-row">
+      <input type="range" id="points" min="20" max="200" step="1" value="60">
+      <input type="number" id="pointsNum" min="20" max="200" step="1" value="60">
+    </div>
+  </div>
+
+  <canvas id="canvas"></canvas>
+  <div class="info" id="info"></div>
+
+  <div class="buttons">
+    <button class="btn btn-secondary" id="btnPlay">Play Preview</button>
+    <button class="btn btn-primary" id="btnSave">Save</button>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+(function() {
+  // ── Shapes ──
+  function regularPolygon(n, pts) {
+    const out = [];
+    for (let i = 0; i <= pts; i++) {
+      const idx = (i / pts) * n;
+      const seg = Math.floor(idx) % n, frac = idx - Math.floor(idx);
+      const a1 = (seg / n) * 2 * Math.PI, a2 = ((seg + 1) / n) * 2 * Math.PI;
+      out.push({ x: Math.cos(a1) * (1 - frac) + Math.cos(a2) * frac, y: Math.sin(a1) * (1 - frac) + Math.sin(a2) * frac });
+    }
+    return out;
+  }
+  function starShape(n, innerR, pts) {
+    const out = [], tv = n * 2;
+    for (let i = 0; i <= pts; i++) {
+      const idx = (i / pts) * tv, seg = Math.floor(idx) % tv, frac = idx - Math.floor(idx);
+      const r1 = seg % 2 === 0 ? 1 : innerR, r2 = (seg + 1) % 2 === 0 ? 1 : innerR;
+      const a1 = (seg / tv) * 2 * Math.PI, a2 = ((seg + 1) / tv) * 2 * Math.PI;
+      const r = r1 * (1 - frac) + r2 * frac, a = a1 * (1 - frac) + a2 * frac;
+      out.push({ x: r * Math.cos(a), y: r * Math.sin(a) });
+    }
+    return out;
+  }
+  function parametric(fn, pts, tMax) {
+    tMax = tMax || 2 * Math.PI;
+    const out = [];
+    for (let i = 0; i <= pts; i++) out.push(fn((i / pts) * tMax));
+    let mx = 0;
+    for (const p of out) mx = Math.max(mx, Math.sqrt(p.x * p.x + p.y * p.y));
+    if (mx > 0) for (const p of out) { p.x /= mx; p.y /= mx; }
+    return out;
+  }
+  function quad(corners, pts) {
+    const out = [], n = corners.length;
+    for (let i = 0; i <= pts; i++) {
+      const idx = (i / pts) * n, seg = Math.floor(idx) % n, frac = idx - Math.floor(idx);
+      const a = corners[seg], b = corners[(seg + 1) % n];
+      out.push({ x: a.x * (1 - frac) + b.x * frac, y: a.y * (1 - frac) + b.y * frac });
+    }
+    return out;
+  }
+  function wire3d(verts, edges, pts) {
+    const ax = 0.6, ay = 0.8, dist = 4;
+    const proj = verts.map(v => {
+      let x = v[0], y = v[1], z = v[2] || 0;
+      if (v.length > 3) { const d4 = 2.5, s4 = d4 / (d4 + v[3]); x *= s4; y *= s4; z *= s4; }
+      const x1 = x * Math.cos(ay) + z * Math.sin(ay);
+      const z1 = -x * Math.sin(ay) + z * Math.cos(ay);
+      const y1 = y * Math.cos(ax) - z1 * Math.sin(ax);
+      const z2 = y * Math.sin(ax) + z1 * Math.cos(ax);
+      const s = dist / (dist + z2);
+      return { x: x1 * s, y: y1 * s };
+    });
+    let mx = 0;
+    for (const p of proj) mx = Math.max(mx, Math.sqrt(p.x * p.x + p.y * p.y));
+    if (mx > 0) for (const p of proj) { p.x /= mx; p.y /= mx; }
+    const ppe = Math.max(Math.floor(pts / edges.length), 2), out = [];
+    for (const [a, b] of edges) for (let i = 0; i <= ppe; i++) { const t = i / ppe; out.push({ x: proj[a].x * (1 - t) + proj[b].x * t, y: proj[a].y * (1 - t) + proj[b].y * t }); }
+    return out;
+  }
+
+  const SHAPES = {
+    circle: { l: 'Circle', c: 'Circles', g: p => parametric(t => ({ x: Math.cos(t), y: Math.sin(t) }), p) },
+    ellipse: { l: 'Ellipse', c: 'Circles', g: p => parametric(t => ({ x: Math.cos(t), y: 0.6 * Math.sin(t) }), p) },
+    oval: { l: 'Oval', c: 'Circles', g: p => parametric(t => ({ x: .75 * Math.sin(t), y: Math.cos(t) }), p) },
+    semicircle: { l: 'Semicircle', c: 'Circles', g: p => parametric(t => ({ x: Math.cos(t), y: Math.max(0, Math.sin(t)) }), p) },
+    triangle: { l: 'Triangle', c: 'Polygons', g: p => regularPolygon(3, p) },
+    square: { l: 'Square', c: 'Polygons', g: p => regularPolygon(4, p) },
+    pentagon: { l: 'Pentagon', c: 'Polygons', g: p => regularPolygon(5, p) },
+    hexagon: { l: 'Hexagon', c: 'Polygons', g: p => regularPolygon(6, p) },
+    heptagon: { l: 'Heptagon', c: 'Polygons', g: p => regularPolygon(7, p) },
+    octagon: { l: 'Octagon', c: 'Polygons', g: p => regularPolygon(8, p) },
+    nonagon: { l: 'Nonagon', c: 'Polygons', g: p => regularPolygon(9, p) },
+    decagon: { l: 'Decagon', c: 'Polygons', g: p => regularPolygon(10, p) },
+    hendecagon: { l: 'Hendecagon', c: 'Polygons', g: p => regularPolygon(11, p) },
+    dodecagon: { l: 'Dodecagon', c: 'Polygons', g: p => regularPolygon(12, p) },
+    rectangle: { l: 'Rectangle', c: 'Quads', g: p => quad([{x:1,y:.6},{x:-1,y:.6},{x:-1,y:-.6},{x:1,y:-.6}], p) },
+    diamond: { l: 'Diamond', c: 'Quads', g: p => quad([{x:0,y:1},{x:-.6,y:0},{x:0,y:-1},{x:.6,y:0}], p) },
+    parallelogram: { l: 'Parallelogram', c: 'Quads', g: p => quad([{x:.8,y:.5},{x:-.4,y:.5},{x:-.8,y:-.5},{x:.4,y:-.5}], p) },
+    trapezoid: { l: 'Trapezoid', c: 'Quads', g: p => quad([{x:.5,y:.5},{x:-.5,y:.5},{x:-1,y:-.5},{x:1,y:-.5}], p) },
+    kite: { l: 'Kite', c: 'Quads', g: p => quad([{x:0,y:1},{x:-.5,y:.2},{x:0,y:-.8},{x:.5,y:.2}], p) },
+    star3: { l: 'Star (3)', c: 'Stars', g: p => starShape(3, .4, p) },
+    star4: { l: 'Star (4)', c: 'Stars', g: p => starShape(4, .4, p) },
+    star5: { l: 'Star (5)', c: 'Stars', g: p => starShape(5, .4, p) },
+    star6: { l: 'Star (6)', c: 'Stars', g: p => starShape(6, .4, p) },
+    star8: { l: 'Star (8)', c: 'Stars', g: p => starShape(8, .4, p) },
+    star12: { l: 'Star (12)', c: 'Stars', g: p => starShape(12, .4, p) },
+    cardioid: { l: 'Cardioid', c: 'Curves', g: p => parametric(t => { const r = 1 + Math.cos(t); return { x: r * Math.cos(t), y: r * Math.sin(t) } }, p) },
+    limacon: { l: 'Limaçon', c: 'Curves', g: p => parametric(t => { const r = .5 + Math.cos(t); return { x: r * Math.cos(t), y: r * Math.sin(t) } }, p) },
+    lemniscate: { l: 'Lemniscate', c: 'Curves', g: p => parametric(t => { const r2 = Math.cos(2 * t); const r = r2 > 0 ? Math.sqrt(r2) : 0; return { x: r * Math.cos(t), y: r * Math.sin(t) } }, p) },
+    astroid: { l: 'Astroid', c: 'Curves', g: p => parametric(t => ({ x: Math.cos(t) ** 3, y: Math.sin(t) ** 3 }), p) },
+    deltoid: { l: 'Deltoid', c: 'Curves', g: p => parametric(t => ({ x: 2 * Math.cos(t) + Math.cos(2 * t), y: 2 * Math.sin(t) - Math.sin(2 * t) }), p) },
+    nephroid: { l: 'Nephroid', c: 'Curves', g: p => parametric(t => ({ x: 3 * Math.cos(t) - Math.cos(3 * t), y: 3 * Math.sin(t) - Math.sin(3 * t) }), p) },
+    epicycloid: { l: 'Epicycloid', c: 'Curves', g: p => parametric(t => ({ x: 4 * Math.cos(t) - Math.cos(4 * t), y: 4 * Math.sin(t) - Math.sin(4 * t) }), p) },
+    hypocycloid: { l: 'Hypocycloid', c: 'Curves', g: p => parametric(t => ({ x: 3 * Math.cos(t) + Math.cos(3 * t), y: 3 * Math.sin(t) + Math.sin(3 * t) }), p) },
+    rose3: { l: 'Rose (3)', c: 'Rosettes', g: p => parametric(t => { const r = Math.cos(3 * t); return { x: r * Math.cos(t), y: r * Math.sin(t) } }, p) },
+    rose4: { l: 'Rose (4)', c: 'Rosettes', g: p => parametric(t => { const r = Math.cos(4 * t); return { x: r * Math.cos(t), y: r * Math.sin(t) } }, p) },
+    rose5: { l: 'Rose (5)', c: 'Rosettes', g: p => parametric(t => { const r = Math.cos(5 * t); return { x: r * Math.cos(t), y: r * Math.sin(t) } }, p) },
+    rose6: { l: 'Rose (6)', c: 'Rosettes', g: p => parametric(t => { const r = Math.cos(6 * t); return { x: r * Math.cos(t), y: r * Math.sin(t) } }, p) },
+    rose8: { l: 'Rose (8)', c: 'Rosettes', g: p => parametric(t => { const r = Math.cos(8 * t); return { x: r * Math.cos(t), y: r * Math.sin(t) } }, p) },
+    trefoil: { l: 'Trefoil', c: 'Knots', g: p => parametric(t => ({ x: Math.sin(t) + 2 * Math.sin(2 * t), y: Math.cos(t) - 2 * Math.cos(2 * t) }), p) },
+    quatrefoil: { l: 'Quatrefoil', c: 'Knots', g: p => parametric(t => { const r = Math.abs(Math.cos(2 * t)); return { x: r * Math.cos(t), y: r * Math.sin(t) } }, p) },
+    cinquefoil: { l: 'Cinquefoil', c: 'Knots', g: p => parametric(t => ({ x: Math.sin(t) + 2 * Math.sin(3 * t), y: Math.cos(t) - 2 * Math.cos(3 * t) }), p) },
+    figure8: { l: 'Figure-8', c: 'Knots', g: p => parametric(t => ({ x: Math.sin(t), y: Math.sin(2 * t) / 2 }), p) },
+    infinity: { l: 'Infinity', c: 'Knots', g: p => parametric(t => ({ x: Math.sin(2 * t) / 2, y: Math.sin(t) }), p) },
+    torus2d: { l: 'Torus', c: 'Knots', g: p => parametric(t => ({ x: (.7 + .3 * Math.cos(5 * t)) * Math.cos(t), y: (.7 + .3 * Math.cos(5 * t)) * Math.sin(t) }), p) },
+    spiralArch: { l: 'Spiral (Arch)', c: 'Spirals', g: p => parametric(t => { const r = t / (4 * Math.PI); return { x: r * Math.cos(t), y: r * Math.sin(t) } }, p, 4 * Math.PI) },
+    spiralLog: { l: 'Spiral (Log)', c: 'Spirals', g: p => parametric(t => { const r = .1 * Math.exp(.15 * t); return { x: r * Math.cos(t), y: r * Math.sin(t) } }, p, 4 * Math.PI) },
+    spiralGolden: { l: 'Golden Spiral', c: 'Spirals', g: p => parametric(t => { const r = .05 * Math.pow(1.1, t); return { x: r * Math.cos(t), y: r * Math.sin(t) } }, p, 6 * Math.PI) },
+    heart: { l: 'Heart', c: 'Misc', g: p => parametric(t => ({ x: 16 * Math.sin(t) ** 3, y: 13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t) }), p) },
+    cross: { l: 'Cross', c: 'Misc', g: p => quad([{x:.3,y:1},{x:-.3,y:1},{x:-.3,y:.3},{x:-1,y:.3},{x:-1,y:-.3},{x:-.3,y:-.3},{x:-.3,y:-1},{x:.3,y:-1},{x:.3,y:-.3},{x:1,y:-.3},{x:1,y:.3},{x:.3,y:.3}], p) },
+    arrow: { l: 'Arrow', c: 'Misc', g: p => quad([{x:0,y:1},{x:-.7,y:0},{x:-.3,y:0},{x:-.3,y:-1},{x:.3,y:-1},{x:.3,y:0},{x:.7,y:0}], p) },
+    teardrop: { l: 'Teardrop', c: 'Misc', g: p => parametric(t => ({ x: -Math.cos(t), y: Math.sin(t) * Math.sin(t / 2) }), p) },
+    gear8: { l: 'Gear (8)', c: 'Misc', g: p => parametric(t => { const r = .8 + .2 * Math.sign(Math.cos(8 * t)); return { x: r * Math.cos(t), y: r * Math.sin(t) } }, p) },
+    gear12: { l: 'Gear (12)', c: 'Misc', g: p => parametric(t => { const r = .8 + .2 * Math.sign(Math.cos(12 * t)); return { x: r * Math.cos(t), y: r * Math.sin(t) } }, p) },
+    sinewave: { l: 'Sine Wave', c: 'Misc', g: p => parametric(t => { const r = .7 + .3 * Math.sin(6 * t); return { x: r * Math.cos(t), y: r * Math.sin(t) } }, p) },
+    zigzag: { l: 'Zigzag', c: 'Misc', g: p => parametric(t => { const r = .7 + .3 * (Math.abs((t * 6 / Math.PI) % 2 - 1) * 2 - 1); return { x: r * Math.cos(t), y: r * Math.sin(t) } }, p) },
+    cube: { l: 'Cube', c: '3D', g: p => wire3d([[-1,-1,-1],[1,-1,-1],[1,1,-1],[-1,1,-1],[-1,-1,1],[1,-1,1],[1,1,1],[-1,1,1]], [[0,1],[1,2],[2,3],[3,0],[4,5],[5,6],[6,7],[7,4],[0,4],[1,5],[2,6],[3,7]], p) },
+    tetrahedron: { l: 'Tetrahedron', c: '3D', g: p => wire3d([[1,1,1],[-1,-1,1],[-1,1,-1],[1,-1,-1]], [[0,1],[0,2],[0,3],[1,2],[1,3],[2,3]], p) },
+    octahedron: { l: 'Octahedron', c: '3D', g: p => wire3d([[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]], [[0,2],[0,3],[0,4],[0,5],[1,2],[1,3],[1,4],[1,5],[2,4],[2,5],[3,4],[3,5]], p) },
+    tesseract: { l: 'Tesseract', c: '3D', g: p => { const v = []; for (let a of [-1,1]) for (let b of [-1,1]) for (let c of [-1,1]) for (let d of [-1,1]) v.push([a,b,c,d]); const e = []; for (let i = 0; i < 16; i++) for (let j = i+1; j < 16; j++) { let diff = 0; for (let k = 0; k < 4; k++) if (v[i][k] !== v[j][k]) diff++; if (diff === 1) e.push([i,j]); } return wire3d(v, e, p); } },
+  };
+
+  // ── Build shape dropdown ──
+  const sel = document.getElementById('shape');
+  const cats = [...new Set(Object.values(SHAPES).map(s => s.c))];
+  for (const cat of cats) {
+    const og = document.createElement('optgroup');
+    og.label = cat;
+    for (const [k, s] of Object.entries(SHAPES)) {
+      if (s.c !== cat) continue;
+      const opt = document.createElement('option');
+      opt.value = k; opt.textContent = s.l;
+      og.appendChild(opt);
+    }
+    sel.appendChild(og);
+  }
+
+  // ── Controls ──
+  const controls = [
+    { slider: 'size', num: 'sizeNum', def: 0.5, parse: parseFloat },
+    { slider: 'iterations', num: 'iterationsNum', def: 20, parse: parseInt },
+    { slider: 'rotation', num: 'rotationNum', def: 0, parse: parseFloat },
+    { slider: 'scale', num: 'scaleNum', def: 1, parse: parseFloat },
+    { slider: 'thetaDrift', num: 'thetaDriftNum', def: 0, parse: parseFloat },
+    { slider: 'rhoDrift', num: 'rhoDriftNum', def: 0, parse: parseFloat },
+    { slider: 'points', num: 'pointsNum', def: 60, parse: parseInt },
+  ];
+  for (const c of controls) {
+    const s = document.getElementById(c.slider), n = document.getElementById(c.num);
+    s.addEventListener('input', () => { n.value = s.value; generate(); });
+    n.addEventListener('input', () => { s.value = n.value; generate(); });
+  }
+  sel.addEventListener('change', () => {
+    for (const c of controls) {
+      document.getElementById(c.slider).value = c.def;
+      document.getElementById(c.num).value = c.def;
+    }
+    generate();
+  });
+
+  function val(id) { return parseFloat(document.getElementById(id).value) || 0; }
+
+  // ── Canvas ──
+  const canvas = document.getElementById('canvas');
+  const info = document.getElementById('info');
+  let polarPoints = null;
+  let animId = 0, animIdx = 0, animPlaying = false;
+
+  function generate() {
+    const shapeKey = sel.value;
+    const shapeFn = SHAPES[shapeKey];
+    if (!shapeFn) return;
+
+    const sz = val('size'), iters = val('iterations'), rot = val('rotation');
+    const sc = val('scale'), td = val('thetaDrift'), rd = val('rhoDrift'), pp = val('points');
+
+    const all = [];
+    for (let i = 0; i < iters; i++) {
+      const raw = shapeFn.g(pp);
+      const angle = (rot * i * Math.PI) / 180;
+      const s = sz * Math.pow(sc, i);
+      const dT = td * i, dR = rd * i;
+
+      const transformed = raw.map(pt => {
+        let x = pt.x * s, y = pt.y * s;
+        const rx = x * Math.cos(angle) - y * Math.sin(angle);
+        const ry = x * Math.sin(angle) + y * Math.cos(angle);
+        let rho = Math.sqrt(rx * rx + ry * ry);
+        let theta = Math.atan2(ry, rx) + dT;
+        rho += dR;
+        while (rho > 1) rho = 2 - rho;
+        while (rho < 0) rho = -rho;
+        rho = Math.min(rho, 1);
+        return { x: rho * Math.cos(theta), y: rho * Math.sin(theta) };
+      });
+
+      if (transformed.length > 0) transformed.push({ ...transformed[0] });
+
+      if (all.length > 0 && transformed.length > 0) {
+        const last = all[all.length - 1], first = transformed[0];
+        for (let j = 1; j < 5; j++) {
+          const t = j / 5;
+          all.push({ x: last.x * (1 - t) + first.x * t, y: last.y * (1 - t) + first.y * t });
+        }
+      }
+      all.push(...transformed);
+    }
+
+    // Cartesian to polar
+    const polar = [];
+    if (all.length === 0) { polarPoints = null; drawStatic([]); return; }
+    let cum = Math.atan2(-all[0].y, -all[0].x), prev = cum;
+    for (let i = 0; i < all.length; i++) {
+      const x = -all[i].x, y = -all[i].y;
+      if (i > 0) { const raw = Math.atan2(y, x); let d = raw - prev; if (d > Math.PI) d -= 2 * Math.PI; else if (d < -Math.PI) d += 2 * Math.PI; cum += d; prev = raw; }
+      polar.push({ theta: cum, rho: Math.min(Math.max(Math.sqrt(x * x + y * y), 0.01), 1) });
+    }
+
+    polarPoints = polar;
+    info.textContent = polar.length + ' coordinates';
+    drawStatic(polar);
+  }
+
+  function drawStatic(points) {
+    const dpr = window.devicePixelRatio || 1;
+    const cw = canvas.clientWidth;
+    canvas.width = cw * dpr; canvas.height = cw * dpr;
+    const ctx = canvas.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const cx = cw / 2, cy = cw / 2, r = (cw / 2) - 4;
+    ctx.fillStyle = 'rgba(30,30,30,0.8)';
+    ctx.beginPath(); ctx.arc(cx, cy, r + 2, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = 'rgba(148,163,184,0.2)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
+    if (!points.length) return;
+    ctx.strokeStyle = '#3b82f6'; ctx.lineWidth = 0.8; ctx.beginPath();
+    for (let i = 0; i < points.length; i++) {
+      const px = cx + points[i].rho * r * Math.cos(points[i].theta - Math.PI / 2);
+      const py = cy + points[i].rho * r * Math.sin(points[i].theta - Math.PI / 2);
+      if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+    }
+    ctx.stroke();
+  }
+
+  // ── Animation ──
+  document.getElementById('btnPlay').addEventListener('click', function() {
+    if (animPlaying) { stopAnim(); return; }
+    if (!polarPoints) return;
+    animPlaying = true; animIdx = 0;
+    this.textContent = 'Stop';
+    const dpr = window.devicePixelRatio || 1, cw = canvas.clientWidth;
+    canvas.width = cw * dpr; canvas.height = cw * dpr;
+    const off = document.createElement('canvas');
+    off.width = cw * dpr; off.height = cw * dpr;
+    const offCtx = off.getContext('2d');
+    offCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const cx = cw / 2, cy = cw / 2, r = (cw / 2) - 4;
+    offCtx.fillStyle = 'rgba(30,30,30,0.8)';
+    offCtx.beginPath(); offCtx.arc(cx, cy, r + 2, 0, Math.PI * 2); offCtx.fill();
+    offCtx.strokeStyle = 'rgba(148,163,184,0.2)'; offCtx.lineWidth = 1;
+    offCtx.beginPath(); offCtx.arc(cx, cy, r, 0, Math.PI * 2); offCtx.stroke();
+    const pts = polarPoints, spd = Math.max(1, Math.floor(pts.length / 300));
+    function tick() {
+      if (animIdx >= pts.length) { stopAnim(); return; }
+      offCtx.strokeStyle = '#3b82f6'; offCtx.lineWidth = 0.8; offCtx.beginPath();
+      const si = Math.max(0, animIdx - spd);
+      for (let i = si; i <= Math.min(animIdx + spd, pts.length - 1); i++) {
+        const px = cx + pts[i].rho * r * Math.cos(pts[i].theta - Math.PI / 2);
+        const py = cy + pts[i].rho * r * Math.sin(pts[i].theta - Math.PI / 2);
+        if (i === si) offCtx.moveTo(px, py); else offCtx.lineTo(px, py);
+      }
+      offCtx.stroke();
+      const ctx = canvas.getContext('2d');
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.drawImage(off, 0, 0);
+      const ci = Math.min(animIdx + spd, pts.length - 1);
+      const bx = cx * dpr + pts[ci].rho * r * dpr * Math.cos(pts[ci].theta - Math.PI / 2);
+      const by = cy * dpr + pts[ci].rho * r * dpr * Math.sin(pts[ci].theta - Math.PI / 2);
+      ctx.fillStyle = '#ef4444'; ctx.beginPath(); ctx.arc(bx, by, 3 * dpr, 0, Math.PI * 2); ctx.fill();
+      animIdx += spd;
+      animId = requestAnimationFrame(tick);
+    }
+    animId = requestAnimationFrame(tick);
+  });
+  function stopAnim() {
+    animPlaying = false; cancelAnimationFrame(animId);
+    document.getElementById('btnPlay').textContent = 'Play Preview';
+    if (polarPoints) drawStatic(polarPoints);
+  }
+
+  // ── Save ──
+  let toastTimer;
+  function showToast(msg, ms) {
+    const t = document.getElementById('toast');
+    t.textContent = msg; t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.remove('show'), ms || 3000);
+  }
+
+  document.getElementById('btnSave').addEventListener('click', async function() {
+    if (!polarPoints) return;
+    const name = prompt('Pattern name:', 'spirograph-' + Date.now());
+    if (!name) return;
+    const content = polarPoints.map(p => p.theta.toFixed(3) + ' ' + p.rho.toFixed(3)).join('\n') + '\n';
+    const blob = new Blob([content], { type: 'text/plain' });
+    const fd = new FormData();
+    fd.append('file', blob, name + '.thr');
+    try {
+      const resp = await fetch(window.location.origin + '/upload_theta_rho', { method: 'POST', body: fd });
+      if (!resp.ok) throw new Error('Upload failed');
+      showToast('Spirograph saved!');
+    } catch (e) {
+      showToast('Error: ' + e.message, 5000);
+    }
+  });
+
+  // ── Init ──
+  generate();
+})();
+</script>
+</body>
+</html>
