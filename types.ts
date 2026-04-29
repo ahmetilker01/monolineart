@@ -12,7 +12,7 @@ export type WorkspaceType = 'rectangular' | 'circular';
 export type PathStartPreference = 'original' | 'center' | 'edge';
 export type PathEndPreference = 'original' | 'center' | 'edge';
 
-export type PatternType = 'spirograph' | 'lissajous' | 'spiral' | 'polygon' | 'star' | 'heart' | 'rose' | 'text';
+export type PatternType = 'spirograph' | 'lissajous' | 'spiral' | 'polygon' | 'star' | 'heart' | 'rose' | 'text' | 'phyllotaxis' | 'modulo' | 'hypotrochoid' | 'epitrochoid' | 'fractal_tree' | 'superformula' | 'chladni_plate';
 
 export interface PatternSettings {
   id: string;
@@ -23,18 +23,35 @@ export interface PatternSettings {
   points: number;
   rotation: number;
   scale: number;
-  // Spirograph
+  // Spirograph / Trochoids
   outerRadius: number;
   innerRadius: number;
   penOffset: number;
-  // Spiral/Lissajous
+  // Spiral/Lissajous/Phyllotaxis/Modulo
   growth: number;
   freqX: number;
   freqY: number;
+  multiplier?: number; // For modulo patterns
+  divergence?: number; // For phyllotaxis
+  // Superformula
+  m?: number;
+  n1?: number;
+  n2?: number;
+  n3?: number;
+  // Fractal
+  fractalDepth?: number;
+  fractalBranchFactor?: number;
+  // Chladni
+  chladniN?: number;
+  chladniM?: number;
   // Effects
   wobbleAmplitude?: number;
   wobbleFrequency?: number;
+  morphAmplitude?: number;
+  morphFrequency?: number;
   noiseAmplitude?: number;
+  modulationAmplitude?: number; // New: modulation of the radius
+  modulationFrequency?: number; // New: frequency of radius modulation
   // Wiper Effect
   wiperPosition?: 'none' | 'before' | 'after';
   wiperDensity?: number;
@@ -44,6 +61,7 @@ export interface PatternSettings {
   textSize?: number;
   textCircular?: boolean;
   textFlipWrap?: boolean;
+  connectLetters?: boolean;
   // Mirroring
   mirrorCount?: number;
   // Transformations

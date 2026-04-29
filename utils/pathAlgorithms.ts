@@ -1,10 +1,11 @@
 
 import { Point, GCodeSettings, PatternSettings } from "../types";
 import { generateText } from "./vectorText";
+import { reflectValue } from "./reflection";
 
-export const generatePattern = (settings: PatternSettings, workspace: { w: number, h: number }): Point[] => {
+export const generatePattern = (settings: PatternSettings, workspace: { w: number, h: number }, customFont?: any): Point[] => {
   let points: Point[] = [];
-  const { type, loops, points: resolution, rotation, scale, outerRadius, innerRadius, penOffset, growth, freqX, freqY, wobbleAmplitude, wobbleFrequency, mirrorCount, offsetX, offsetY, noiseAmplitude, textContent, textSize, textCircular, textFlipWrap } = settings;
+  const { type, loops, points: resolution, rotation, scale, outerRadius, innerRadius, penOffset, growth, freqX, freqY, wobbleAmplitude, wobbleFrequency, mirrorCount, offsetX, offsetY, noiseAmplitude, textContent, textSize, textCircular, textFlipWrap, multiplier, divergence, modulationAmplitude, modulationFrequency, m, n1, n2, n3, fractalDepth, fractalBranchFactor, chladniN, chladniM, morphAmplitude, morphFrequency } = settings;
   const cx = workspace.w / 2;
   const cy = workspace.h / 2;
   const rotRad = (rotation * Math.PI) / 180;
@@ -13,8 +14,8 @@ export const generatePattern = (settings: PatternSettings, workspace: { w: numbe
       const txt = textContent || "MONOLINE";
       const r = outerRadius; // reuse outerRadius for Circular wrapping radius
       const s = textSize || 20;
-      points = generateText(txt, !!textCircular, r, s, cx, cy, true, !!textFlipWrap);
-      // Connect option is hardcoded true for CNC, can be made a setting.
+      const doConnect = settings.connectLetters !== false; // Default true
+      points = generateText(txt, !!textCircular, r, s, cx, cy, doConnect, !!textFlipWrap, customFont);
       
       // Apply pure rotation to the entire text block if needed
       if (rotation !== 0) {
@@ -28,9 +29,9 @@ export const generatePattern = (settings: PatternSettings, workspace: { w: numbe
              };
           });
       }
-  } else if (type === 'spirograph') {
+  } else if (type === 'spirograph' || type === 'hypotrochoid') {
     const R = outerRadius;
-    const r = innerRadius;
+    const r = innerRadius || 1;
     const d = penOffset;
     const totalSteps = Math.floor(resolution * loops);
     
@@ -38,6 +39,21 @@ export const generatePattern = (settings: PatternSettings, workspace: { w: numbe
         const theta = (i / resolution) * 2 * Math.PI;
         const x = (R - r) * Math.cos(theta) + d * Math.cos(((R - r) / r) * theta);
         const y = (R - r) * Math.sin(theta) - d * Math.sin(((R - r) / r) * theta);
+        
+        const sx = (x * Math.cos(rotRad) - y * Math.sin(rotRad)) * scale + cx;
+        const sy = (x * Math.sin(rotRad) + y * Math.cos(rotRad)) * scale + cy;
+        points.push({ x: sx, y: sy });
+    }
+  } else if (type === 'epitrochoid') {
+    const R = outerRadius;
+    const r = innerRadius || 1;
+    const d = penOffset;
+    const totalSteps = Math.floor(resolution * loops);
+    
+    for (let i = 0; i <= totalSteps; i++) {
+        const theta = (i / resolution) * 2 * Math.PI;
+        const x = (R + r) * Math.cos(theta) - d * Math.cos(((R + r) / r) * theta);
+        const y = (R + r) * Math.sin(theta) - d * Math.sin(((R + r) / r) * theta);
         
         const sx = (x * Math.cos(rotRad) - y * Math.sin(rotRad)) * scale + cx;
         const sy = (x * Math.sin(rotRad) + y * Math.cos(rotRad)) * scale + cy;
@@ -111,6 +127,109 @@ export const generatePattern = (settings: PatternSettings, workspace: { w: numbe
           const sy = (x * Math.sin(rotRad) + y * Math.cos(rotRad)) * (workspace.h / 2 * scale) + cy;
           points.push({ x: sx, y: sy });
       }
+  } else if (type === 'phyllotaxis') {
+      const totalSteps = Math.floor(resolution * loops);
+      const c = growth || 4;
+      const angle = (divergence || 137.5) * (Math.PI / 180);
+      for (let i = 0; i <= totalSteps; i++) {
+          const r = c * Math.sqrt(i);
+          const theta = i * angle;
+          const x = r * Math.cos(theta);
+          const y = r * Math.sin(theta);
+          const sx = (x * Math.cos(rotRad) - y * Math.sin(rotRad)) * scale + cx;
+          const sy = (x * Math.sin(rotRad) + y * Math.cos(rotRad)) * scale + cy;
+          points.push({ x: sx, y: sy });
+      }
+  } else if (type === 'modulo') {
+      const n = Math.floor(resolution);
+      const m = multiplier || 2;
+      const r = outerRadius || 100;
+      for (let i = 0; i < n; i++) {
+          const t1 = (i / n) * 2 * Math.PI;
+          const t2 = ((i * m) % n / n) * 2 * Math.PI;
+          
+          const x1 = r * Math.cos(t1);
+          const y1 = r * Math.sin(t1);
+          const x2 = r * Math.cos(t2);
+          const y2 = r * Math.sin(t2);
+          
+          const sx1 = (x1 * Math.cos(rotRad) - y1 * Math.sin(rotRad)) * scale + cx;
+          const sy1 = (x1 * Math.sin(rotRad) + y1 * Math.cos(rotRad)) * scale + cy;
+          const sx2 = (x2 * Math.cos(rotRad) - y2 * Math.sin(rotRad)) * scale + cx;
+          const sy2 = (x2 * Math.sin(rotRad) + y2 * Math.cos(rotRad)) * scale + cy;
+          
+          points.push({ x: sx1, y: sy1, isJump: true });
+          points.push({ x: sx2, y: sy2, isJump: false });
+      }
+  } else if (type === 'superformula') {
+      const totalSteps = Math.floor(resolution * loops);
+      const m_val = m || 6;
+      const n1_val = n1 || 1;
+      const n2_val = n2 || 1;
+      const n3_val = n3 || 1;
+      const a = outerRadius || 100;
+      const b = innerRadius || 100;
+      
+      for (let i = 0; i <= totalSteps; i++) {
+          const phi = (i / totalSteps) * 2 * Math.PI * loops;
+          
+          let t1 = Math.cos((m_val * phi) / 4) / a;
+          t1 = Math.abs(t1);
+          t1 = Math.pow(t1, n2_val);
+          
+          let t2 = Math.sin((m_val * phi) / 4) / b;
+          t2 = Math.abs(t2);
+          t2 = Math.pow(t2, n3_val);
+          
+          let r = Math.pow(t1 + t2, 1 / n1_val);
+          r = Math.abs(r) === 0 ? 0 : 1 / r;
+          
+          // Use outerRadius to amplify the normalized formula output
+          r = r * 100; 
+
+          const x = r * Math.cos(phi);
+          const y = r * Math.sin(phi);
+          
+          const sx = (x * Math.cos(rotRad) - y * Math.sin(rotRad)) * scale + cx;
+          const sy = (x * Math.sin(rotRad) + y * Math.cos(rotRad)) * scale + cy;
+          points.push({ x: sx, y: sy });
+      }
+  } else if (type === 'fractal_tree') {
+      const drawTree = (x: number, y: number, length: number, angle: number, depth: number) => {
+          if (depth === 0) return;
+          const destX = x + length * Math.cos(angle);
+          const destY = y + length * Math.sin(angle);
+          
+          const sx1 = (x * Math.cos(rotRad) - y * Math.sin(rotRad)) * scale + cx;
+          const sy1 = (x * Math.sin(rotRad) + y * Math.cos(rotRad)) * scale + cy;
+          const sx2 = (destX * Math.cos(rotRad) - destY * Math.sin(rotRad)) * scale + cx;
+          const sy2 = (destX * Math.sin(rotRad) + destY * Math.cos(rotRad)) * scale + cy;
+          
+          // Draw this branch
+          points.push({ x: sx1, y: sy1, isJump: true });
+          points.push({ x: sx2, y: sy2, isJump: false });
+          
+          const branchAngle = (fractalBranchFactor || 25) * (Math.PI / 180);
+          drawTree(destX, destY, length * 0.7, angle - branchAngle, depth - 1);
+          drawTree(destX, destY, length * 0.7, angle + branchAngle, depth - 1);
+      };
+      
+      const maxDepth = fractalDepth || 6;
+      drawTree(0, 0, outerRadius || 50, -Math.PI / 2, maxDepth);
+  } else if (type === 'chladni_plate') {
+      const totalSteps = Math.floor(resolution * loops) * 2;
+      const nm = chladniM || 4;
+      const nn = chladniN || 2;
+      for (let i = 0; i <= totalSteps; i++) {
+          const t = (i / totalSteps) * Math.PI * 2 * loops;
+          // Approximating nodal lines path
+          const x = outerRadius * ( Math.cos(nn*t) + Math.cos(nm*t) );
+          const y = innerRadius * ( Math.sin(nn*t) - Math.sin(nm*t) );
+          
+          const sx = (x * Math.cos(rotRad) - y * Math.sin(rotRad)) * scale + cx;
+          const sy = (x * Math.sin(rotRad) + y * Math.cos(rotRad)) * scale + cy;
+          points.push({ x: sx, y: sy });
+      }
   }
 
   // Apply Offset (Applied before Effects/Mirroring)
@@ -130,6 +249,18 @@ export const generatePattern = (settings: PatternSettings, workspace: { w: numbe
     });
   }
 
+  // Apply Waveform Morphing Effect
+  if (morphAmplitude && morphAmplitude > 0 && morphFrequency && morphFrequency > 0) {
+      points = points.map((p, i) => {
+          const morphFactor = Math.sin((i / resolution) * Math.PI * morphFrequency) * morphAmplitude;
+          return {
+              ...p,
+              x: p.x + morphFactor,
+              y: p.y + morphFactor
+          };
+      });
+  }
+
   // Apply Noise Effect if requested
   if (noiseAmplitude && noiseAmplitude > 0) {
     points = points.map(p => {
@@ -137,6 +268,21 @@ export const generatePattern = (settings: PatternSettings, workspace: { w: numbe
        const dy = (Math.random() - 0.5) * 2 * noiseAmplitude;
        return { ...p, x: p.x + dx, y: p.y + dy };
     });
+  }
+
+  // Apply Radius Modulation Effect
+  if (modulationAmplitude && modulationAmplitude > 0 && modulationFrequency && modulationFrequency > 0) {
+      points = points.map((p) => {
+          const dx = p.x - cx;
+          const dy = p.y - cy;
+          const theta = Math.atan2(dy, dx);
+          const mod = 1 + (Math.sin(theta * modulationFrequency) * (modulationAmplitude / 100));
+          return {
+              ...p,
+              x: cx + dx * mod,
+              y: cy + dy * mod
+          };
+      });
   }
 
   // Apply Radial Mirroring
@@ -741,6 +887,25 @@ export const generateGCode = (
     let realX = placeX + normX * placeW;
     let realY = placeY + normY * placeH;
 
+    // APPLY BOUNDARY REFLECTION
+    if (settings.workspaceType === 'circular') {
+        const cx = settings.scaleX / 2;
+        const cy = settings.scaleY / 2;
+        const r_limit = Math.min(settings.scaleX, settings.scaleY) / 2;
+        const dx_ref = realX - cx;
+        const dy_ref = realY - cy;
+        const dist = Math.sqrt(dx_ref * dx_ref + dy_ref * dy_ref);
+        if (dist > r_limit && r_limit > 0) {
+            const reflectedDist = reflectValue(dist, 0, r_limit);
+            const angle = Math.atan2(dy_ref, dx_ref);
+            realX = cx + Math.cos(angle) * reflectedDist;
+            realY = cy + Math.sin(angle) * reflectedDist;
+        }
+    } else {
+        realX = reflectValue(realX, 0, settings.scaleX);
+        realY = reflectValue(realY, 0, settings.scaleY);
+    }
+
     // Apply Calibration
     if (settings.thrFlipX) realX = settings.scaleX - realX;
     if (settings.thrFlipY) realY = settings.scaleY - realY;
@@ -803,6 +968,25 @@ export const generateTHR = (
     
     let realX = placeX + normX * placeW;
     let realY = placeY + normY * placeH;
+
+    // APPLY BOUNDARY REFLECTION
+    if (settings.workspaceType === 'circular') {
+        const cx = settings.scaleX / 2;
+        const cy = settings.scaleY / 2;
+        const r_limit = Math.min(settings.scaleX, settings.scaleY) / 2;
+        const dx_ref = realX - cx;
+        const dy_ref = realY - cy;
+        const dist = Math.sqrt(dx_ref * dx_ref + dy_ref * dy_ref);
+        if (dist > r_limit && r_limit > 0) {
+            const reflectedDist = reflectValue(dist, 0, r_limit);
+            const angle = Math.atan2(dy_ref, dx_ref);
+            realX = cx + Math.cos(angle) * reflectedDist;
+            realY = cy + Math.sin(angle) * reflectedDist;
+        }
+    } else {
+        realX = reflectValue(realX, 0, settings.scaleX);
+        realY = reflectValue(realY, 0, settings.scaleY);
+    }
 
     // Apply Calibration
     if (settings.thrFlipX) realX = settings.scaleX - realX;

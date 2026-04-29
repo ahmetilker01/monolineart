@@ -1,6 +1,8 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import opentype from 'opentype.js';
 import { processImageToSingleLine, generateGCode, generateTHR, generatePattern } from './utils/pathAlgorithms';
+import { reflectInBox, reflectInCircle, reflectValue } from './utils/reflection';
 import { analyzeImageForCNC } from './services/geminiService';
 import { Point, GCodeSettings, AnalysisResult, WorkspaceType, ImagePlacement, PathStartPreference, PathEndPreference, PatternSettings, PatternType } from './types';
 import { 
@@ -25,9 +27,65 @@ import {
   SparklesIcon
 } from '@heroicons/react/24/outline';
 
+interface SliderControlProps {
+  label: string;
+  value: number | undefined;
+  min: number;
+  max: number;
+  step?: number;
+  onChange: (val: number) => void;
+  color?: string;
+  unit?: string;
+}
+
+const SliderControl: React.FC<SliderControlProps> = ({ label, value, min, max, step = 1, onChange, color = "amber", unit = "" }) => {
+  const safeValue = value ?? min;
+  
+  const cleanDecimals = (num: number) => {
+    const decimals = step.toString().includes('.') ? step.toString().split('.')[1].length : 0;
+    return Number(num.toFixed(decimals));
+  };
+
+  const handleDecrement = () => {
+    onChange(cleanDecimals(Math.max(min, safeValue - step)));
+  };
+  
+  const handleIncrement = () => {
+    onChange(cleanDecimals(Math.min(max, safeValue + step)));
+  };
+  
+  const decimals = step.toString().includes('.') ? step.toString().split('.')[1].length : 0;
+  const displayValue = safeValue.toFixed(decimals);
+
+  return (
+    <div className="space-y-1">
+       <div className="flex justify-between items-center text-[9px] text-slate-500 uppercase font-bold">
+          <span>{label}</span>
+          <div className="flex items-center gap-1 ml-2">
+            <button onClick={handleDecrement} className="w-5 h-5 flex items-center justify-center bg-slate-800 rounded hover:bg-slate-600 hover:text-white transition-colors border border-slate-700 leading-none pb-[2px] cursor-pointer touch-manipulation">-</button>
+            <span className="min-w-[40px] text-center text-slate-300 font-mono text-[10px]">{displayValue}{unit}</span>
+            <button onClick={handleIncrement} className="w-5 h-5 flex items-center justify-center bg-slate-800 rounded hover:bg-slate-600 hover:text-white transition-colors border border-slate-700 leading-none pb-[2px] cursor-pointer touch-manipulation">+</button>
+          </div>
+       </div>
+       <input 
+         type="range" 
+         min={min} 
+         max={max} 
+         step={step} 
+         value={safeValue} 
+         onChange={e => onChange(Number(e.target.value))} 
+         className={`w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-${color}-500`} 
+       />
+    </div>
+  );
+};
+
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'image' | 'pattern'>('image');
   const [imageSrc, setImageSrc] = useState<string | null>(null);
+  const [customFont, setCustomFont] = useState<any>(null);
+  const [customFontName, setCustomFontName] = useState<string>('');
+  const fontInputRef = useRef<HTMLInputElement>(null);
   const [processedPath, setProcessedPath] = useState<Point[]>([]);
   const [patternPath, setPatternPath] = useState<Point[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -104,7 +162,8 @@ const App: React.FC = () => {
     wiperRadius: 280,
     textContent: 'MONOLINE',
     textSize: 20,
-    textCircular: false
+    textCircular: false,
+    connectLetters: true
   }]);
   
   const [activeLayerId, setActiveLayerId] = useState<string>('layer-1');
@@ -116,7 +175,7 @@ const App: React.FC = () => {
 
   const addLayer = () => {
     const newId = `layer-${Date.now()}`;
-    setPatternLayers(layers => [...layers, { ...activeLayer, id: newId, name: `Layer ${layers.length + 1}` }]);
+    setPatternLayers(layers => [...layers, { ...activeLayer, id: newId, name: `Layer ${layers.length + 1}`, connectLetters: true }]);
     setActiveLayerId(newId);
   };
   
@@ -167,7 +226,18 @@ const App: React.FC = () => {
       const combinedPath: Point[] = [];
       patternLayers.forEach(layer => {
         if (!layer.visible) return;
-        const layerPath = generatePattern(layer, { w: settings.scaleX, h: settings.scaleY });
+        let layerPath = generatePattern(layer, { w: settings.scaleX, h: settings.scaleY }, customFont);
+        
+        // APPLY BOUNDARY REFLECTION
+        if (settings.workspaceType === 'circular') {
+          const cx = settings.scaleX / 2;
+          const cy = settings.scaleY / 2;
+          const radius = Math.min(settings.scaleX, settings.scaleY) / 2;
+          layerPath = layerPath.map(p => reflectInCircle(p, cx, cy, radius));
+        } else {
+          layerPath = layerPath.map(p => reflectInBox(p, settings.scaleX, settings.scaleY));
+        }
+
         if (layerPath.length > 0) {
             // If we already have points, draw a jump to the start of this layer
             if (combinedPath.length > 0) {
@@ -181,9 +251,25 @@ const App: React.FC = () => {
       // Reset simulation when pattern changes
       setSimProgress(100);
     }
-  }, [patternLayers, settings.scaleX, settings.scaleY, activeTab]);
+  }, [patternLayers, settings.scaleX, settings.scaleY, settings.workspaceType, activeTab]);
 
   const currentPath = activeTab === 'image' ? processedPath : patternPath;
+
+  const handleFontUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const font = opentype.parse(arrayBuffer);
+      setCustomFont(font);
+      setCustomFontName(file.name);
+      // Trigger redraw of pattern by updating a dummy settings
+      setPatternLayers([...patternLayers]);
+    } catch (err) {
+      console.error("Font parsing error:", err);
+      alert("Invalid font file. Please upload a .ttf or .otf file.");
+    }
+  };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -407,6 +493,25 @@ const App: React.FC = () => {
                 const { x: placeX, y: placeY, width: placeW, height: placeH } = settings.imagePlacement;
                 wx = placeX + nX * placeW;
                 wy = placeY + nY * placeH;
+
+                // REFLECTION PREVIEW
+                if (settings.workspaceType === 'circular') {
+                    const cx = settings.scaleX / 2;
+                    const cy = settings.scaleY / 2;
+                    const r_limit = Math.min(settings.scaleX, settings.scaleY) / 2;
+                    const dx = wx - cx;
+                    const dy = wy - cy;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    if (dist > r_limit && r_limit > 0) {
+                        const reflectedDist = reflectValue(dist, 0, r_limit);
+                        const angle = Math.atan2(dy, dx);
+                        wx = cx + Math.cos(angle) * reflectedDist;
+                        wy = cy + Math.sin(angle) * reflectedDist;
+                    }
+                } else {
+                    wx = reflectValue(wx, 0, settings.scaleX);
+                    wy = reflectValue(wy, 0, settings.scaleY);
+                }
             } else {
                 wx = p.x;
                 wy = p.y;
@@ -428,6 +533,25 @@ const App: React.FC = () => {
                 const { x: placeX, y: placeY, width: placeW, height: placeH } = settings.imagePlacement;
                 wx = placeX + nX * placeW;
                 wy = placeY + nY * placeH;
+
+                // REFLECTION PREVIEW
+                if (settings.workspaceType === 'circular') {
+                    const cx = settings.scaleX / 2;
+                    const cy = settings.scaleY / 2;
+                    const r_limit = Math.min(settings.scaleX, settings.scaleY) / 2;
+                    const dx = wx - cx;
+                    const dy = wy - cy;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    if (dist > r_limit && r_limit > 0) {
+                        const reflectedDist = reflectValue(dist, 0, r_limit);
+                        const angle = Math.atan2(dy, dx);
+                        wx = cx + Math.cos(angle) * reflectedDist;
+                        wy = cy + Math.sin(angle) * reflectedDist;
+                    }
+                } else {
+                    wx = reflectValue(wx, 0, settings.scaleX);
+                    wy = reflectValue(wy, 0, settings.scaleY);
+                }
             } else {
                 wx = last.x;
                 wy = last.y;
@@ -650,8 +774,7 @@ const App: React.FC = () => {
                         <button onClick={() => setSettings({...settings, processingMode: 'fill'})} className={`text-[10px] font-bold py-2 rounded-md transition-all ${settings.processingMode === 'fill' ? 'bg-sky-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}>FILL</button>
                     </div>
                     <div className="space-y-1">
-                        <div className="flex justify-between text-[10px] text-slate-500 uppercase font-bold"><span>Sensitivity</span><span>{settings.threshold}</span></div>
-                        <input type="range" min="50" max="250" value={settings.threshold} onChange={e => setSettings({...settings, threshold: Number(e.target.value)})} className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-sky-500" />
+                        <SliderControl label="Sensitivity" min={50} max={250} step={1} value={settings.threshold} onChange={v => setSettings({...settings, threshold: v})} color="sky" />
                     </div>
                     {(settings.processingMode === 'fill' || settings.processingMode === 'counter') && (
                       <div className="space-y-3 mt-3 border-t border-slate-800 pt-3">
@@ -669,10 +792,7 @@ const App: React.FC = () => {
                                </select>
                             </div>
                           )}
-                          <div className="space-y-1">
-                              <div className="flex justify-between text-[10px] text-slate-500 uppercase font-bold"><span>{settings.processingMode === 'counter' ? 'Offset Spacing' : 'Fill Density'}</span><span>{settings.fillSpacing}</span></div>
-                              <input type="range" min="2" max="15" step="1" value={settings.fillSpacing} onChange={e => setSettings({...settings, fillSpacing: Number(e.target.value)})} className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-sky-500" />
-                          </div>
+                          <SliderControl label={settings.processingMode === 'counter' ? 'Offset Spacing' : 'Fill Density'} min={2} max={15} step={1} value={settings.fillSpacing} onChange={v => setSettings({...settings, fillSpacing: v})} color="sky" />
                       </div>
                     )}
                  </div>
@@ -723,13 +843,13 @@ const App: React.FC = () => {
                     <div>
                         <label className="text-[10px] text-slate-500 font-bold uppercase block mb-1">Pattern Type</label>
                         <div className="grid grid-cols-2 lg:grid-cols-4 gap-1 font-bold text-[9px]">
-                           {(['spirograph', 'lissajous', 'spiral', 'polygon', 'star', 'heart', 'rose', 'text'] as PatternType[]).map(t => (
+                           {(['spirograph', 'hypotrochoid', 'epitrochoid', 'lissajous', 'spiral', 'polygon', 'star', 'heart', 'rose', 'phyllotaxis', 'modulo', 'superformula', 'fractal_tree', 'chladni_plate', 'text'] as PatternType[]).map(t => (
                               <button 
                                 key={t}
                                 onClick={() => updateActiveLayer({ type: t })}
                                 className={`py-2 px-1 rounded uppercase tracking-tighter ${activeLayer.type === t ? 'bg-amber-600 text-white' : 'bg-slate-950 text-slate-500 border border-slate-800'}`}
                               >
-                                {t === 'spirograph' ? 'spiro' : t}
+                                {t === 'spirograph' ? 'spiro' : (t === 'hypotrochoid' ? 'hypo' : (t === 'epitrochoid' ? 'epi' : (t === 'phyllotaxis' ? 'phylla' : (t === 'superformula' ? 'super' : (t === 'fractal_tree' ? 'fractal' : (t === 'chladni_plate' ? 'chladni' : t))))))}
                               </button>
                            ))}
                         </div>
@@ -737,6 +857,24 @@ const App: React.FC = () => {
 
                     {activeLayer.type === 'text' ? (
                        <div className="space-y-3 p-3 bg-slate-950 border border-slate-800 rounded-lg">
+                          <div className="space-y-2 pb-2 border-b border-slate-800">
+                             <label className="text-[9px] text-slate-500 font-bold uppercase flex items-center justify-between">
+                                Custom Font (.ttf / .otf)
+                                {customFont && (
+                                   <button onClick={() => { setCustomFont(null); setCustomFontName(''); setPatternLayers([...patternLayers]); }} className="text-red-400 hover:text-red-300">Clear</button>
+                                )}
+                             </label>
+                             <div 
+                                onClick={() => fontInputRef.current?.click()} 
+                                className={`border ${customFont ? 'border-amber-500/50 bg-amber-950/20' : 'border-dashed border-slate-700 hover:border-amber-500/50 hover:bg-slate-900'} rounded p-2 text-center cursor-pointer transition-all`}
+                             >
+                                <input ref={fontInputRef} type="file" accept=".ttf,.otf" className="hidden" onChange={handleFontUpload} />
+                                <span className={`text-[10px] ${customFont ? 'text-amber-400 font-bold' : 'text-slate-400'}`}>
+                                  {customFont ? customFontName : 'Click to Upload Font'}
+                                </span>
+                             </div>
+                             <p className="text-[8px] text-slate-500 leading-tight">Uploaded font will be converted to a single-line center path or continuous outline path.</p>
+                          </div>
                           <div className="space-y-1">
                              <label className="text-[9px] text-slate-500 font-bold uppercase block">Text</label>
                              <input 
@@ -746,6 +884,7 @@ const App: React.FC = () => {
                                className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-xs text-slate-200 outline-none focus:border-amber-500"
                                placeholder="Write something..."
                              />
+
                           </div>
                           <div className="flex items-center gap-2 mt-2">
                              <input 
@@ -758,106 +897,114 @@ const App: React.FC = () => {
                              <label htmlFor="text-circular" className="text-[9px] text-slate-300 font-bold uppercase">Circular Wrap</label>
                           </div>
                           <div className="space-y-1 mt-2">
-                             <div className="flex justify-between text-[9px] text-slate-500 uppercase font-bold"><span>Size</span><span>{activeLayer.textSize}</span></div>
-                             <input type="range" min="5" max="100" step="1" value={activeLayer.textSize || 20} onChange={e => updateActiveLayer({ textSize: Number(e.target.value) })} className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-amber-500" />
+                              <div className="flex items-center gap-2 mb-2 mt-2">
+                                <input 
+                                  type="checkbox" 
+                                  id={`text-connect-${activeLayer.id}`}
+                                  checked={activeLayer.connectLetters !== false} 
+                                  onChange={(e) => updateActiveLayer({ connectLetters: e.target.checked })}
+                                  className="accent-amber-500 w-3 h-3"
+                                />
+                                <label htmlFor={`text-connect-${activeLayer.id}`} className="text-[9px] text-slate-300 font-bold uppercase">Connect Bottoms</label>
+                              </div>
+                             <SliderControl label="Size" min={5} max={100} step={1} value={activeLayer.textSize} onChange={v => updateActiveLayer({ textSize: v })} />
                           </div>
                           {activeLayer.textCircular && (
-                             <div className="space-y-1 mt-2">
-                                <div className="flex justify-between text-[9px] text-slate-500 uppercase font-bold"><span>Wrap Radius</span><span>{activeLayer.outerRadius}</span></div>
-                                <input type="range" min="10" max="400" step="5" value={activeLayer.outerRadius} onChange={e => updateActiveLayer({ outerRadius: Number(e.target.value) })} className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-amber-500" />
+                             <div className="mt-2">
+                                <SliderControl label="Wrap Radius" min={10} max={400} step={5} value={activeLayer.outerRadius} onChange={v => updateActiveLayer({ outerRadius: v })} />
                              </div>
                           )}
-                          <div className="space-y-1 mt-2">
-                             <div className="flex justify-between text-[9px] text-slate-500 uppercase font-bold"><span>Rotation</span><span>{activeLayer.rotation}°</span></div>
-                             <input type="range" min="0" max="360" step="1" value={activeLayer.rotation} onChange={e => updateActiveLayer({ rotation: Number(e.target.value) })} className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-amber-500" />
+                          <div className="mt-2">
+                             <SliderControl label="Rotation" min={0} max={360} step={1} value={activeLayer.rotation} onChange={v => updateActiveLayer({ rotation: v })} unit="°" />
                           </div>
                        </div>
                     ) : (
                        <div className="space-y-3 p-3 bg-slate-950 border border-slate-800 rounded-lg">
-                          <div className="space-y-1">
-                             <div className="flex justify-between text-[9px] text-slate-500 uppercase font-bold"><span>Loops / Cycles</span><span>{activeLayer.loops}</span></div>
-                             <input type="range" min="1" max="50" step="0.5" value={activeLayer.loops} onChange={e => updateActiveLayer({ loops: Number(e.target.value) })} className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-amber-500" />
-                          </div>
-                          
-                          <div className="space-y-1">
-                             <div className="flex justify-between text-[9px] text-slate-500 uppercase font-bold"><span>Scale</span><span>{activeLayer.scale.toFixed(2)}</span></div>
-                             <input type="range" min="0.1" max="2" step="0.05" value={activeLayer.scale} onChange={e => updateActiveLayer({ scale: Number(e.target.value) })} className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-amber-500" />
-                          </div>
-
-                          <div className="space-y-1">
-                             <div className="flex justify-between text-[9px] text-slate-500 uppercase font-bold"><span>Rotation</span><span>{activeLayer.rotation}°</span></div>
-                             <input type="range" min="0" max="360" step="1" value={activeLayer.rotation} onChange={e => updateActiveLayer({ rotation: Number(e.target.value) })} className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-amber-500" />
-                          </div>
+                          <SliderControl label="Loops / Cycles" min={1} max={50} step={0.5} value={activeLayer.loops} onChange={v => updateActiveLayer({ loops: v })} />
+                          <SliderControl label="Scale" min={0.1} max={2} step={0.05} value={activeLayer.scale} onChange={v => updateActiveLayer({ scale: v })} />
+                          <SliderControl label="Rotation" min={0} max={360} step={1} value={activeLayer.rotation} onChange={v => updateActiveLayer({ rotation: v })} unit="°" />
                        </div>
                     )}
 
                     {activeLayer.type === 'spirograph' && (
                        <div className="space-y-3 p-3 bg-slate-950 border border-slate-800 rounded-lg">
-                          <div className="space-y-1">
-                             <div className="flex justify-between text-[9px] text-slate-500 uppercase font-bold"><span>Outer Radius</span><span>{activeLayer.outerRadius}</span></div>
-                             <input type="range" min="10" max="300" value={activeLayer.outerRadius} onChange={e => updateActiveLayer({ outerRadius: Number(e.target.value) })} className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-amber-500" />
-                          </div>
-                          <div className="space-y-1">
-                             <div className="flex justify-between text-[9px] text-slate-500 uppercase font-bold"><span>Inner Radius</span><span>{activeLayer.innerRadius}</span></div>
-                             <input type="range" min="1" max="300" value={activeLayer.innerRadius} onChange={e => updateActiveLayer({ innerRadius: Number(e.target.value) })} className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-amber-500" />
-                          </div>
-                          <div className="space-y-1">
-                             <div className="flex justify-between text-[9px] text-slate-500 uppercase font-bold"><span>Pen Offset</span><span>{activeLayer.penOffset}</span></div>
-                             <input type="range" min="1" max="300" value={activeLayer.penOffset} onChange={e => updateActiveLayer({ penOffset: Number(e.target.value) })} className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-amber-500" />
-                          </div>
+                          <SliderControl label="Outer Radius" min={10} max={300} step={1} value={activeLayer.outerRadius} onChange={v => updateActiveLayer({ outerRadius: v })} />
+                          <SliderControl label="Inner Radius" min={1} max={300} step={1} value={activeLayer.innerRadius} onChange={v => updateActiveLayer({ innerRadius: v })} />
+                          <SliderControl label="Pen Offset" min={1} max={300} step={1} value={activeLayer.penOffset} onChange={v => updateActiveLayer({ penOffset: v })} />
                        </div>
                     )}
 
                     {(activeLayer.type === 'lissajous') && (
                        <div className="space-y-3 p-3 bg-slate-950 border border-slate-800 rounded-lg">
-                          <div className="space-y-1">
-                             <div className="flex justify-between text-[9px] text-slate-500 uppercase font-bold"><span>Freq X</span><span>{activeLayer.freqX}</span></div>
-                             <input type="range" min="1" max="20" step="0.1" value={activeLayer.freqX} onChange={e => updateActiveLayer({ freqX: Number(e.target.value) })} className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-amber-500" />
-                          </div>
-                          <div className="space-y-1">
-                             <div className="flex justify-between text-[9px] text-slate-500 uppercase font-bold"><span>Freq Y</span><span>{activeLayer.freqY}</span></div>
-                             <input type="range" min="1" max="20" step="0.1" value={activeLayer.freqY} onChange={e => updateActiveLayer({ freqY: Number(e.target.value) })} className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-amber-500" />
-                          </div>
+                          <SliderControl label="Freq X" min={1} max={20} step={0.1} value={activeLayer.freqX} onChange={v => updateActiveLayer({ freqX: v })} />
+                          <SliderControl label="Freq Y" min={1} max={20} step={0.1} value={activeLayer.freqY} onChange={v => updateActiveLayer({ freqY: v })} />
                        </div>
                     )}
 
-                    {(activeLayer.type === 'spiral' || activeLayer.type === 'polygon' || activeLayer.type === 'star' || activeLayer.type === 'rose') && (
+                    {(activeLayer.type === 'spiral' || activeLayer.type === 'polygon' || activeLayer.type === 'star' || activeLayer.type === 'rose' || activeLayer.type === 'phyllotaxis') && (
                        <div className="space-y-3 p-3 bg-slate-950 border border-slate-800 rounded-lg">
-                          <div className="space-y-1">
-                             <div className="flex justify-between text-[9px] text-slate-500 uppercase font-bold">
-                                <span>{activeLayer.type === 'spiral' ? 'Growth Rate' : (activeLayer.type === 'star' ? 'Points' : (activeLayer.type === 'rose' ? 'Petals (k-value)' : 'Sides'))}</span>
-                                <span>{activeLayer.growth}</span>
-                             </div>
-                             <input 
-                               type="range" 
-                               min={activeLayer.type === 'spiral' ? 0.1 : (activeLayer.type === 'rose' ? 1 : 3)} 
-                               max={activeLayer.type === 'spiral' ? 10 : (activeLayer.type === 'star' ? 30 : 20)} 
-                               step={activeLayer.type === 'spiral' ? 0.1 : 1} 
-                               value={activeLayer.growth} 
-                               onChange={e => updateActiveLayer({ growth: Number(e.target.value) })} 
-                               className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-amber-500" 
-                             />
-                          </div>
+                          <SliderControl 
+                             label={activeLayer.type === 'spiral' || activeLayer.type === 'phyllotaxis' ? 'Growth Rate' : (activeLayer.type === 'star' ? 'Points' : (activeLayer.type === 'rose' ? 'Petals (k-value)' : 'Sides'))}
+                             min={activeLayer.type === 'spiral' || activeLayer.type === 'phyllotaxis' ? 0.1 : (activeLayer.type === 'rose' ? 1 : 3)} 
+                             max={activeLayer.type === 'spiral' || activeLayer.type === 'phyllotaxis' ? 50 : (activeLayer.type === 'star' ? 30 : 20)} 
+                             step={activeLayer.type === 'spiral' || activeLayer.type === 'phyllotaxis' ? 0.1 : 1}
+                             value={activeLayer.growth}
+                             onChange={v => updateActiveLayer({ growth: v })}
+                          />
+                          {activeLayer.type === 'phyllotaxis' && (
+                              <SliderControl label="Divergence Angle" min={0} max={360} step={0.1} value={activeLayer.divergence || 137.5} onChange={v => updateActiveLayer({ divergence: v })} unit="°" />
+                          )}
                        </div>
+                    )}
+
+                    {activeLayer.type === 'modulo' && (
+                       <div className="space-y-3 p-3 bg-slate-950 border border-slate-800 rounded-lg">
+                          <SliderControl label="Modulo Multiplier" min={1} max={250} step={0.1} value={activeLayer.multiplier || 2} onChange={v => updateActiveLayer({ multiplier: v })} />
+                          <SliderControl label="Sample Points (n)" min={3} max={500} step={1} value={activeLayer.points} onChange={v => updateActiveLayer({ points: v })} />
+                       </div>
+                    )}
+
+                    {activeLayer.type === 'superformula' && (
+                        <div className="space-y-3 p-3 bg-slate-950 border border-slate-800 rounded-lg">
+                           <SliderControl label="m (Symmetry)" min={1} max={20} step={0.1} value={activeLayer.m || 6} onChange={v => updateActiveLayer({ m: v })} />
+                           <SliderControl label="n1 (Shape)" min={0.1} max={10} step={0.1} value={activeLayer.n1 || 1} onChange={v => updateActiveLayer({ n1: v })} />
+                           <div className="grid grid-cols-2 gap-2">
+                              <SliderControl label="n2" min={0.1} max={10} step={0.1} value={activeLayer.n2 || 1} onChange={v => updateActiveLayer({ n2: v })} />
+                              <SliderControl label="n3" min={0.1} max={10} step={0.1} value={activeLayer.n3 || 1} onChange={v => updateActiveLayer({ n3: v })} />
+                           </div>
+                        </div>
+                    )}
+
+                    {activeLayer.type === 'fractal_tree' && (
+                        <div className="space-y-3 p-3 bg-slate-950 border border-slate-800 rounded-lg">
+                           <SliderControl label="Depth" min={2} max={12} step={1} value={activeLayer.fractalDepth || 6} onChange={v => updateActiveLayer({ fractalDepth: v })} />
+                           <SliderControl label="Branch Angle" min={10} max={90} step={1} value={activeLayer.fractalBranchFactor || 25} onChange={v => updateActiveLayer({ fractalBranchFactor: v })} unit="°" />
+                        </div>
+                    )}
+
+                    {activeLayer.type === 'chladni_plate' && (
+                        <div className="space-y-3 p-3 bg-slate-950 border border-slate-800 rounded-lg">
+                           <div className="grid grid-cols-2 gap-2">
+                             <SliderControl label="N" min={1} max={20} step={1} value={activeLayer.chladniN || 2} onChange={v => updateActiveLayer({ chladniN: v })} />
+                             <SliderControl label="M" min={1} max={20} step={1} value={activeLayer.chladniM || 4} onChange={v => updateActiveLayer({ chladniM: v })} />
+                           </div>
+                        </div>
                     )}
 
                     <div className="space-y-3 pt-4 border-t border-slate-800">
                        <div className="flex items-center gap-2">
                           <SparklesIcon className="w-3 h-3 text-amber-500" />
-                          <h3 className="text-slate-300 text-[10px] font-bold uppercase tracking-wider">Effects (Wobble & Noise)</h3>
+                          <h3 className="text-slate-300 text-[10px] font-bold uppercase tracking-wider">Effects & Distortions</h3>
                        </div>
                        <div className="space-y-3 p-3 bg-slate-950 border border-slate-800 rounded-lg">
-                          <div className="space-y-1">
-                             <div className="flex justify-between text-[9px] text-slate-500 uppercase font-bold"><span>Wobble Amplitude</span><span>{activeLayer.wobbleAmplitude}</span></div>
-                             <input type="range" min="0" max="20" step="0.5" value={activeLayer.wobbleAmplitude} onChange={e => updateActiveLayer({ wobbleAmplitude: Number(e.target.value) })} className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-amber-500" />
-                          </div>
-                          <div className="space-y-1">
-                             <div className="flex justify-between text-[9px] text-slate-500 uppercase font-bold"><span>Wobble Frequency</span><span>{activeLayer.wobbleFrequency}</span></div>
-                             <input type="range" min="1" max="100" step="1" value={activeLayer.wobbleFrequency} onChange={e => updateActiveLayer({ wobbleFrequency: Number(e.target.value) })} className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-amber-500" />
-                          </div>
-                          <div className="space-y-1 mt-4">
-                             <div className="flex justify-between text-[9px] text-slate-500 uppercase font-bold"><span>Noise Amplitude</span><span>{activeLayer.noiseAmplitude || 0}</span></div>
-                             <input type="range" min="0" max="10" step="0.1" value={activeLayer.noiseAmplitude || 0} onChange={e => updateActiveLayer({ noiseAmplitude: Number(e.target.value) })} className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-amber-500" />
+                          <SliderControl label="Wobble Amplitude" min={0} max={20} step={0.5} value={activeLayer.wobbleAmplitude} onChange={v => updateActiveLayer({ wobbleAmplitude: v })} />
+                          <SliderControl label="Wobble Frequency" min={1} max={100} step={1} value={activeLayer.wobbleFrequency} onChange={v => updateActiveLayer({ wobbleFrequency: v })} />
+                          <SliderControl label="Morph Amp (Shape)" min={0} max={50} step={0.5} value={activeLayer.morphAmplitude || 0} onChange={v => updateActiveLayer({ morphAmplitude: v })} color="pink" />
+                          <SliderControl label="Morph Freq" min={1} max={100} step={1} value={activeLayer.morphFrequency || 1} onChange={v => updateActiveLayer({ morphFrequency: v })} color="pink" />
+                          <SliderControl label="Modulation Amp (%)" min={0} max={100} step={1} value={activeLayer.modulationAmplitude || 0} onChange={v => updateActiveLayer({ modulationAmplitude: v })} />
+                          <SliderControl label="Modulation Freq" min={1} max={64} step={1} value={activeLayer.modulationFrequency || 1} onChange={v => updateActiveLayer({ modulationFrequency: v })} />
+                          <div className="pt-2">
+                             <SliderControl label="Noise Amplitude" min={0} max={10} step={0.1} value={activeLayer.noiseAmplitude || 0} onChange={v => updateActiveLayer({ noiseAmplitude: v })} />
                           </div>
                        </div>
                     </div>
@@ -867,10 +1014,7 @@ const App: React.FC = () => {
                           <h3 className="text-slate-300 text-[10px] font-bold uppercase tracking-wider">Mirroring (Aynalama)</h3>
                        </div>
                        <div className="space-y-3 p-3 bg-slate-950 border border-slate-800 rounded-lg">
-                          <div className="space-y-1">
-                             <div className="flex justify-between text-[9px] text-slate-500 uppercase font-bold"><span>Radial Clones</span><span>{activeLayer.mirrorCount}</span></div>
-                             <input type="range" min="1" max="12" step="1" value={activeLayer.mirrorCount} onChange={e => updateActiveLayer({ mirrorCount: Number(e.target.value) })} className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-amber-500" />
-                          </div>
+                          <SliderControl label="Radial Clones" min={1} max={12} step={1} value={activeLayer.mirrorCount} onChange={v => updateActiveLayer({ mirrorCount: v })} />
                           <p className="text-[9px] text-slate-500 italic">Repeats the pattern radially for "Snowflake" style effects.</p>
                        </div>
                     </div>
@@ -881,14 +1025,8 @@ const App: React.FC = () => {
                           <h3 className="text-slate-300 text-[10px] font-bold uppercase tracking-wider">Positioning (Konumlandırma)</h3>
                        </div>
                        <div className="space-y-3 p-3 bg-slate-950 border border-slate-800 rounded-lg">
-                          <div className="space-y-1">
-                             <div className="flex justify-between text-[9px] text-slate-500 uppercase font-bold"><span>Offset X</span><span>{activeLayer.offsetX} mm</span></div>
-                             <input type="range" min="-300" max="300" step="1" value={activeLayer.offsetX} onChange={e => updateActiveLayer({ offsetX: Number(e.target.value) })} className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-amber-500" />
-                          </div>
-                          <div className="space-y-1">
-                             <div className="flex justify-between text-[9px] text-slate-500 uppercase font-bold"><span>Offset Y</span><span>{activeLayer.offsetY} mm</span></div>
-                             <input type="range" min="-300" max="300" step="1" value={activeLayer.offsetY} onChange={e => updateActiveLayer({ offsetY: Number(e.target.value) })} className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-amber-500" />
-                          </div>
+                          <SliderControl label="Offset X" min={-300} max={300} step={1} value={activeLayer.offsetX} onChange={v => updateActiveLayer({ offsetX: v })} unit=" mm" />
+                          <SliderControl label="Offset Y" min={-300} max={300} step={1} value={activeLayer.offsetY} onChange={v => updateActiveLayer({ offsetY: v })} unit=" mm" />
                        </div>
                     </div>
 
@@ -914,14 +1052,10 @@ const App: React.FC = () => {
                           </div>
                           {activeLayer.wiperPosition !== 'none' && (
                             <>
-                              <div className="space-y-1 mt-2">
-                                 <div className="flex justify-between text-[9px] text-slate-500 uppercase font-bold"><span>Wiper Radius</span><span>{activeLayer.wiperRadius} mm</span></div>
-                                 <input type="range" min="50" max="600" step="10" value={activeLayer.wiperRadius} onChange={e => updateActiveLayer({ wiperRadius: Number(e.target.value) })} className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-amber-500" />
+                              <div className="mt-2">
+                                 <SliderControl label="Wiper Radius" min={50} max={600} step={10} value={activeLayer.wiperRadius} onChange={v => updateActiveLayer({ wiperRadius: v })} unit=" mm" />
                               </div>
-                              <div className="space-y-1">
-                                 <div className="flex justify-between text-[9px] text-slate-500 uppercase font-bold"><span>Line Density</span><span>{activeLayer.wiperDensity} mm/loop</span></div>
-                                 <input type="range" min="1" max="20" step="1" value={activeLayer.wiperDensity} onChange={e => updateActiveLayer({ wiperDensity: Number(e.target.value) })} className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-amber-500" />
-                              </div>
+                              <SliderControl label="Line Density" min={1} max={20} step={1} value={activeLayer.wiperDensity} onChange={v => updateActiveLayer({ wiperDensity: v })} unit=" mm" />
                               <p className="text-[9px] text-slate-500 italic">Pre-wipe clears sandbox before drawing. Post-wipe erases after.</p>
                             </>
                           )}
