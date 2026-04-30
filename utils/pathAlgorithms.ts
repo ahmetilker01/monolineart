@@ -950,42 +950,70 @@ function generateWavySpiral(imageData: ImageData, settings: GCodeSettings): Poin
     const height = imageData.height;
     const cx = width / 2;
     const cy = height / 2;
-    const maxR = Math.min(width, height) / 2;
-    const spacing = settings.fillSpacing || 4; 
-    const loops = Math.max(1, maxR / spacing);
+    // Cover the full image including corners
+    const maxR = Math.sqrt(cx * cx + cy * cy);
+    const spacing = Math.max(2, settings.fillSpacing || 4); 
     const thr = settings.threshold || 128;
     const invert = settings.invert || false;
-    const wobbleAmp = spacing * 0.45; 
+    
+    // Scale wobble amplitude based on threshold (Sensitivity)
+    // At default 128, amplitude is roughly 0.85 * spacing
+    const amplitudeMultiplier = thr / 128.0;
+    const wobbleAmp = spacing * 0.85 * amplitudeMultiplier; 
     
     let points: Point[] = [];
-    const totalSteps = Math.floor(loops * 100 * (spacing < 5 ? 2 : 1)); 
     
-    for(let i=0; i<=totalSteps; i++) {
-        const t = (i/totalSteps) * 2 * Math.PI * loops;
-        const baseR = (t / (2 * Math.PI)) * spacing; 
+    // We step along the spiral in 1 pixel increments (arc length)
+    const dl = 1; 
+    let currDist = 0;
+    
+    // Frequency: how many radians the sine wave progresses per pixel
+    // Wavelength = spacing * 1.5 pixels (e.g. 6px per wave if spacing is 4)
+    const freq = (Math.PI * 2) / (spacing * 1.5);
+    
+    let t = 0;
+    let baseR = 0;
+    
+    points.push({x: cx, y: cy});
+    
+    while (baseR <= maxR) {
+        baseR = (t / (2 * Math.PI)) * spacing;
+        if (baseR > maxR) break;
         
-        const px = Math.floor(cx + Math.cos(t) * baseR);
-        const py = Math.floor(cy + Math.sin(t) * baseR);
+        let px = cx + Math.cos(t) * baseR;
+        let py = cy + Math.sin(t) * baseR;
         
         let intensity = 0;
         if (px >= 0 && px < width && py >= 0 && py < height) {
-            const idx = (py * width + px) * 4;
+            const idx = (Math.floor(py) * width + Math.floor(px)) * 4;
             const rVal = imageData.data[idx];
             const gVal = imageData.data[idx+1];
             const bVal = imageData.data[idx+2];
-            let luma = 0.299*rVal + 0.587*gVal + 0.114*bVal;
+            let luma = 0.299 * rVal + 0.587 * gVal + 0.114 * bVal;
             if (invert) luma = 255 - luma;
-            intensity = 1 - (luma / 255); 
-            if (luma >= thr) intensity = 0;
+            
+            // High clarity mapping (similar to relief's sharp contrast but smooth)
+            if (luma < thr) {
+                // Map to 0-1, strongly emphasizing dark areas
+                let normalized = 1.0 - (luma / thr);
+                intensity = Math.pow(normalized, 0.7); 
+            }
         }
         
-        const rMod = baseR + Math.sin(t * 200) * wobbleAmp * Math.pow(intensity, 2);
+        const rMod = baseR + Math.sin(currDist * freq) * wobbleAmp * intensity;
         
         const x = cx + Math.cos(t) * rMod;
         const y = cy + Math.sin(t) * rMod;
         
         points.push({x, y});
+        
+        currDist += dl;
+        const a = spacing / (2 * Math.PI);
+        const dt = dl / Math.sqrt(baseR * baseR + a * a);
+        t += dt;
     }
+    
+    // smoothPath is applied outside
     return points;
 }
 
@@ -1099,6 +1127,160 @@ function generateSandArt(imageData: ImageData, settings: GCodeSettings): Point[]
     return trunk;
 }
 
+function generateRelief(imageData: ImageData, settings: GCodeSettings): Point[] {
+    const { width, height, data } = imageData;
+    const spacing = Math.max(2, settings.fillSpacing || 4);
+    const thresh = settings.threshold || 128;
+    const invert = settings.invert || false;
+
+    const points: Point[] = [];
+    let movingRight = true;
+    
+    for (let y = 0; y < height; y += spacing) {
+        for (let x = 0; x < width; x++) {
+            const currentX = movingRight ? x : (width - 1 - x);
+            
+            const idx = (y * width + currentX) * 4;
+            const rVal = data[idx];
+            const gVal = data[idx+1];
+            const bVal = data[idx+2];
+            let luma = 0.299 * rVal + 0.587 * gVal + 0.114 * bVal;
+            if (invert) luma = 255 - luma;
+            
+            // For a smooth bump effect, calculate intensity
+            let intensity = luma < thresh ? 1 : 0;
+            
+            // Bending amplitude is slightly less than spacing so lines don't cross
+            const yOffset = intensity * (spacing * 0.85);
+            
+            // Apply smoothing for the bump so it's not a sudden 90 degree sharp angle
+            // Center everything
+            const px = currentX;
+            const py = y - yOffset;
+            
+            points.push({ x: px, y: py });
+        }
+        movingRight = !movingRight;
+    }
+    
+    return points;
+}
+
+function generateHatch(imageData: ImageData, settings: GCodeSettings): Point[] {
+    const { width, height, data } = imageData;
+    const thresh = settings.threshold || 128;
+    const invert = settings.invert || false;
+    const spacing = Math.max(2, settings.fillSpacing || 4);
+    
+    // We want the lines to cover the entire bounding box
+    const cx = width / 2;
+    const cy = height / 2;
+    // Max radius from center to cover corners
+    const maxRadius = Math.sqrt(cx * cx + cy * cy);
+    
+    const lines: Point[][] = [];
+    
+    const angles = [0, Math.PI / 2, Math.PI / 4, -Math.PI / 4];
+    
+    angles.forEach((angle, layerIdx) => {
+        const layerThresh = thresh * (1 - (layerIdx / angles.length));
+        const dx = Math.cos(angle);
+        const dy = Math.sin(angle);
+        const nx = -dy;
+        const ny = dx;
+        
+        let movingForward = true;
+        
+        for (let d = -maxRadius; d <= maxRadius; d += spacing) {
+            let currentPath: Point[] = [];
+            
+            for (let i = 0; i <= 2 * maxRadius; i += 1) { // 1 px steps
+                const stepT = movingForward ? (-maxRadius + i) : (maxRadius - i);
+                
+                const px = cx + d * nx + stepT * dx;
+                const py = cy + d * ny + stepT * dy;
+                
+                if (px >= 0 && px < width && py >= 0 && py < height) {
+                    const idx = (Math.floor(py) * width + Math.floor(px)) * 4;
+                    let luma = 0.299 * data[idx] + 0.587 * data[idx+1] + 0.114 * data[idx+2];
+                    if (invert) luma = 255 - luma;
+                    
+                    if (luma < layerThresh) {
+                        currentPath.push({ x: px, y: py });
+                    } else {
+                        if (currentPath.length > 1) {
+                            lines.push(currentPath);
+                        }
+                        currentPath = [];
+                    }
+                } else if (currentPath.length > 0) {
+                    if (currentPath.length > 1) {
+                        lines.push(currentPath);
+                    }
+                    currentPath = [];
+                }
+            }
+            if (currentPath.length > 1) {
+                lines.push(currentPath);
+            }
+            movingForward = !movingForward;
+        }
+    });
+
+    if (lines.length === 0) return [];
+    
+    let currentSegment = lines[0];
+    const finalPath: Point[] = [];
+    currentSegment.forEach((p, i) => finalPath.push({ ...p, isJump: i === 0 }));
+    
+    const unvisited = lines.slice(1);
+    
+    while (unvisited.length > 0) {
+        const lastPoint = finalPath[finalPath.length - 1];
+        let bestDist = Infinity;
+        let bestIndex = -1;
+        let bestReverse = false;
+        
+        for (let i = 0; i < unvisited.length; i++) {
+            const seg = unvisited[i];
+            const start = seg[0];
+            const end = seg[seg.length - 1];
+            
+            const dxStart = start.x - lastPoint.x;
+            const dyStart = start.y - lastPoint.y;
+            const dStartSq = dxStart * dxStart + dyStart * dyStart;
+            
+            if (dStartSq < bestDist) {
+                bestDist = dStartSq;
+                bestIndex = i;
+                bestReverse = false;
+            }
+            
+            const dxEnd = end.x - lastPoint.x;
+            const dyEnd = end.y - lastPoint.y;
+            const dEndSq = dxEnd * dxEnd + dyEnd * dyEnd;
+            
+            if (dEndSq < bestDist) {
+                bestDist = dEndSq;
+                bestIndex = i;
+                bestReverse = true;
+            }
+        }
+        
+        const nextSegment = unvisited[bestIndex];
+        if (bestReverse) nextSegment.reverse();
+        
+        for (let i = 0; i < nextSegment.length; i++) {
+            finalPath.push({ ...nextSegment[i], isJump: i === 0 }); 
+        }
+        // Remove the chosen segment
+        unvisited[bestIndex] = unvisited[unvisited.length - 1];
+        unvisited.pop();
+    }
+
+    return finalPath;
+}
+
 export const processImageToSingleLine = (
   imageData: ImageData,
   settings: GCodeSettings,
@@ -1115,6 +1297,14 @@ export const processImageToSingleLine = (
   }
   if (settings.processingMode === 'wavy_spiral') {
       points = generateWavySpiral(imageData, settings);
+      return settings.smoothing > 0 ? smoothPath(points, 1) : points;
+  }
+  if (settings.processingMode === 'relief') {
+      points = generateRelief(imageData, settings);
+      return settings.smoothing > 0 ? smoothPath(points, 3) : points;
+  }
+  if (settings.processingMode === 'hatch') {
+      points = generateHatch(imageData, settings);
       return settings.smoothing > 0 ? smoothPath(points, 1) : points;
   }
   if (settings.processingMode === 'fill') {

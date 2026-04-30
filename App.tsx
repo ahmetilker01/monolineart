@@ -108,7 +108,7 @@ const App: React.FC = () => {
   // Simulation State
   const [simProgress, setSimProgress] = useState(100);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [simSpeed, setSimSpeed] = useState(0.5);
+  const [simSpeed, setSimSpeed] = useState(-1.0);
   const animationRef = useRef<number | null>(null);
 
   const [settings, setSettings] = useState<GCodeSettings>({
@@ -326,7 +326,8 @@ const App: React.FC = () => {
       const step = () => {
         setSimProgress(prev => {
           if (prev >= 100) { setIsPlaying(false); return 100; }
-          return prev + simSpeed;
+          const actualSpeed = 0.2 * Math.pow(2, simSpeed);
+          return prev + actualSpeed;
         });
         animationRef.current = requestAnimationFrame(step);
       };
@@ -795,17 +796,19 @@ const App: React.FC = () => {
                     <h3 className="text-slate-200 text-sm font-semibold">Drawing Settings</h3>
                  </div>
                  <div className="space-y-4">
-                    <div className="grid grid-cols-5 gap-1 p-1 bg-slate-950 rounded-lg border border-slate-800">
-                        <button onClick={() => setSettings({...settings, processingMode: 'outline'})} className={`text-[9px] font-bold py-2 rounded-md transition-all ${settings.processingMode === 'outline' ? 'bg-sky-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}>OUTLINE</button>
-                        <button onClick={() => setSettings({...settings, processingMode: 'counter'})} className={`text-[9px] font-bold py-2 rounded-md transition-all ${settings.processingMode === 'counter' ? 'bg-sky-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}>COUNTER</button>
-                        <button onClick={() => setSettings({...settings, processingMode: 'fill'})} className={`text-[9px] font-bold py-2 rounded-md transition-all ${settings.processingMode === 'fill' ? 'bg-sky-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}>FILL</button>
-                        <button onClick={() => setSettings({...settings, processingMode: 'wavy_spiral'})} className={`text-[9px] font-bold py-2 rounded-md transition-all ${settings.processingMode === 'wavy_spiral' ? 'bg-sky-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}>WAVY</button>
-                        <button onClick={() => setSettings({...settings, processingMode: 'sandart'})} className={`text-[9px] font-bold py-2 rounded-md transition-all ${settings.processingMode === 'sandart' ? 'bg-sky-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}>SANDART</button>
+                    <div className="flex flex-wrap gap-1 p-1.5 bg-slate-950 rounded-lg border border-slate-800">
+                        <button onClick={() => setSettings({...settings, processingMode: 'outline'})} className={`flex-1 min-w-[70px] text-[10px] font-bold py-2 px-1 rounded-md transition-all ${settings.processingMode === 'outline' ? 'bg-sky-600 text-white shadow-lg' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'}`}>OUTLINE</button>
+                        <button onClick={() => setSettings({...settings, processingMode: 'counter'})} className={`flex-1 min-w-[70px] text-[10px] font-bold py-2 px-1 rounded-md transition-all ${settings.processingMode === 'counter' ? 'bg-sky-600 text-white shadow-lg' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'}`}>COUNTER</button>
+                        <button onClick={() => setSettings({...settings, processingMode: 'fill'})} className={`flex-1 min-w-[70px] text-[10px] font-bold py-2 px-1 rounded-md transition-all ${settings.processingMode === 'fill' ? 'bg-sky-600 text-white shadow-lg' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'}`}>FILL</button>
+                        <button onClick={() => setSettings({...settings, processingMode: 'wavy_spiral'})} className={`flex-1 min-w-[70px] text-[10px] font-bold py-2 px-1 rounded-md transition-all ${settings.processingMode === 'wavy_spiral' ? 'bg-sky-600 text-white shadow-lg' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'}`}>WAVY</button>
+                        <button onClick={() => setSettings({...settings, processingMode: 'sandart'})} className={`flex-1 min-w-[70px] text-[10px] font-bold py-2 px-1 rounded-md transition-all ${settings.processingMode === 'sandart' ? 'bg-sky-600 text-white shadow-lg' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'}`}>SANDART</button>
+                        <button onClick={() => setSettings({...settings, processingMode: 'relief'})} className={`flex-1 min-w-[70px] text-[10px] font-bold py-2 px-1 rounded-md transition-all ${settings.processingMode === 'relief' ? 'bg-sky-600 text-white shadow-lg' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'}`}>RELIEF</button>
+                        <button onClick={() => setSettings({...settings, processingMode: 'hatch'})} className={`flex-1 min-w-[70px] text-[10px] font-bold py-2 px-1 rounded-md transition-all ${settings.processingMode === 'hatch' ? 'bg-sky-600 text-white shadow-lg' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'}`}>HATCH</button>
                     </div>
                     <div className="space-y-1">
                         <SliderControl label="Sensitivity" min={50} max={250} step={1} value={settings.threshold} onChange={v => setSettings({...settings, threshold: v})} color="sky" />
                     </div>
-                    {(settings.processingMode === 'fill' || settings.processingMode === 'counter' || settings.processingMode === 'wavy_spiral') && (
+                    {(settings.processingMode === 'fill' || settings.processingMode === 'counter' || settings.processingMode === 'wavy_spiral' || settings.processingMode === 'relief' || settings.processingMode === 'hatch') && (
                       <div className="space-y-3 mt-3 border-t border-slate-800 pt-3">
                           {settings.processingMode === 'fill' && (
                             <div>
@@ -821,7 +824,7 @@ const App: React.FC = () => {
                                </select>
                             </div>
                           )}
-                          <SliderControl label={settings.processingMode === 'counter' ? 'Offset Spacing' : 'Fill Density'} min={2} max={15} step={1} value={settings.fillSpacing} onChange={v => setSettings({...settings, fillSpacing: v})} color="sky" />
+                          <SliderControl label={settings.processingMode === 'counter' ? 'Offset Spacing' : 'Fill Density'} min={2} max={15} step={1} value={settings.processingMode === 'counter' ? settings.fillSpacing : (17 - (settings.fillSpacing || 4))} onChange={v => setSettings({...settings, fillSpacing: settings.processingMode === 'counter' ? v : (17 - v)})} color="sky" />
                       </div>
                     )}
                  </div>
@@ -1286,7 +1289,7 @@ const App: React.FC = () => {
         </div>
 
         {(imageSrc || activeTab === 'pattern') && (
-            <div className="absolute top-1/2 left-2 md:left-4 -translate-y-1/2 flex flex-col items-center gap-2 md:gap-3 bg-slate-900/90 p-1.5 md:p-2 rounded-xl md:rounded-2xl border border-slate-700/50 shadow-2xl backdrop-blur-md z-20">
+            <div className="absolute top-1/2 left-2 md:left-4 -translate-y-1/2 flex flex-col items-center gap-2 md:gap-3 bg-slate-900/90 p-1.5 md:p-2 rounded-xl border border-slate-700/50 shadow-2xl backdrop-blur-md z-20 w-10 md:w-12">
                 <button 
                     onClick={() => {
                         if (!isPlaying && simProgress >= 100) {
@@ -1294,40 +1297,42 @@ const App: React.FC = () => {
                         }
                         setIsPlaying(!isPlaying);
                     }} 
-                    className={`w-8 h-8 md:w-10 md:h-10 flex items-center justify-center rounded-full text-white transition-all shadow-lg ${isPlaying ? 'bg-amber-500 shadow-amber-500/20' : 'bg-sky-600 shadow-sky-500/20 hover:scale-110'}`} 
+                    className={`w-7 h-7 md:w-8 md:h-8 flex items-center justify-center rounded-full text-white transition-all shadow-lg shrink-0 ${isPlaying ? 'bg-amber-500 shadow-amber-500/20' : 'bg-sky-600 shadow-sky-500/20 hover:scale-110'}`} 
                     title={isPlaying ? 'Pause' : 'Play'}
                 >
-                    {isPlaying ? <PauseIcon className="w-4 h-4 md:w-5 md:h-5" /> : <PlayIcon className="w-4 h-4 md:w-5 md:h-5 flex-shrink-0 ml-0.5" />}
+                    {isPlaying ? <PauseIcon className="w-4 h-4" /> : <PlayIcon className="w-4 h-4 flex-shrink-0 ml-0.5" />}
                 </button>
                 
-                <div className="h-px w-4 md:w-6 bg-slate-800 my-0.5 md:my-1"></div>
+                <div className="h-px w-6 bg-slate-800 shrink-0"></div>
                 
                 {/* Progress bar (vertical) */}
-                <div className="flex flex-col items-center gap-1 md:gap-2 group">
-                    <span className="text-[8px] md:text-[9px] text-sky-400 font-black tracking-tighter" title="Progress">{Math.round(simProgress)}%</span>
+                <div className="flex flex-col items-center gap-1 w-full relative">
+                    <span className="text-[9px] text-sky-400 font-black tracking-tighter mb-1">{Math.round(simProgress)}%</span>
                     <input 
+                        title="Progress"
                         type="range" 
                         min="0" max="100" step="0.1" 
                         value={simProgress} 
                         onChange={e => setSimProgress(Number(e.target.value))} 
-                        className="w-1 md:w-1.5 h-20 md:h-28 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-sky-500 hover:accent-sky-400"
+                        className="h-28 md:h-36 w-2 md:w-2.5 bg-slate-800 rounded-lg cursor-pointer accent-sky-500 hover:accent-sky-400"
                         style={{ WebkitAppearance: 'slider-vertical', writingMode: 'vertical-rl', direction: 'rtl' } as any}
                     />
                 </div>
 
-                <div className="h-px w-4 md:w-6 bg-slate-800 my-0.5 md:my-1"></div>
+                <div className="h-px w-6 bg-slate-800 shrink-0 mt-1"></div>
 
                 {/* Speed bar (vertical) */}
-                <div className="flex flex-col items-center gap-1 md:gap-2 group">
-                    <span className="text-[8px] md:text-[9px] text-amber-500 font-black tracking-tighter" title="Speed">{simSpeed.toFixed(1)}x</span>
+                <div className="flex flex-col items-center gap-1 w-full relative">
                     <input 
+                        title="Speed"
                         type="range" 
-                        min="0.1" max="5" step="0.1" 
+                        min="-3.0" max="2.0" step="0.1" 
                         value={simSpeed} 
                         onChange={e => setSimSpeed(Number(e.target.value))} 
-                        className="w-1 md:w-1.5 h-12 md:h-16 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-amber-500 hover:accent-amber-400"
+                        className="h-16 md:h-20 w-2 md:w-2.5 bg-slate-800 rounded-lg cursor-pointer accent-amber-500 hover:accent-amber-400"
                         style={{ WebkitAppearance: 'slider-vertical', writingMode: 'vertical-rl', direction: 'rtl' } as any}
                     />
+                    <span className="text-[9px] text-amber-500 font-black tracking-tighter mt-1">{simSpeed > 0 ? "+" : ""}{simSpeed.toFixed(1)}x</span>
                 </div>
             </div>
         )}

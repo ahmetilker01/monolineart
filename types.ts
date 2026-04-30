@@ -6,7 +6,7 @@ export interface Point {
 }
 
 export type StartLocation = 'center' | 'topLeft' | 'topRight' | 'bottomLeft' | 'bottomRight' | 'custom';
-export type ProcessingMode = 'outline' | 'fill' | 'counter' | 'wavy_spiral' | 'sandart';
+export type ProcessingMode = 'outline' | 'fill' | 'counter' | 'wavy_spiral' | 'sandart' | 'relief' | 'hatch';
 export type FillStyle = 'linear' | 'scribble' | 'contour';
 export type WorkspaceType = 'rectangular' | 'circular';
 export type PathStartPreference = 'original' | 'center' | 'edge';
