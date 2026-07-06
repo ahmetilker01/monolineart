@@ -2,6 +2,7 @@
 import { Point, GCodeSettings, PatternSettings } from "../types";
 import { generateText } from "./vectorText";
 import { reflectValue } from "./reflection";
+import { detectCannyEdges } from "./canny";
 
 export const generatePattern = (settings: PatternSettings, workspace: { w: number, h: number }, customFont?: any): Point[] => {
   let points: Point[] = [];
@@ -83,49 +84,103 @@ export const generatePattern = (settings: PatternSettings, workspace: { w: numbe
   } else if (type === 'polygon') {
       const sides = Math.max(3, Math.floor(growth)); // Reuse growth for sides
       const totalSteps = sides;
-      for (let i = 0; i <= totalSteps; i++) {
-          const theta = (i / sides) * 2 * Math.PI;
-          const x = Math.cos(theta);
-          const y = Math.sin(theta);
-          const sx = (x * Math.cos(rotRad) - y * Math.sin(rotRad)) * (workspace.w / 2 * scale) + cx;
-          const sy = (x * Math.sin(rotRad) + y * Math.cos(rotRad)) * (workspace.h / 2 * scale) + cy;
-          points.push({ x: sx, y: sy });
+      const cCount = Math.max(1, Math.floor(settings.contourCount || 1));
+      const tOffset = Math.PI / sides;
+      for (let c = 0; c < cCount; c++) {
+          const sizeMod = 1 - (c / cCount);
+          for (let i = 0; i <= totalSteps; i++) {
+              const stepI = (c % 2 === 0) ? i : (totalSteps - i);
+              const theta = (stepI / sides) * 2 * Math.PI + tOffset;
+              const x = Math.cos(theta) * sizeMod;
+              const y = Math.sin(theta) * sizeMod;
+              const sx = (x * Math.cos(rotRad) - y * Math.sin(rotRad)) * (workspace.w / 2 * scale) + cx;
+              const sy = (x * Math.sin(rotRad) + y * Math.cos(rotRad)) * (workspace.h / 2 * scale) + cy;
+              
+              if (c === 0 && i === 0 && points.length > 0) {
+                  points.push({ x: sx, y: sy, isJump: true });
+              }
+              points.push({ x: sx, y: sy, isJump: false });
+          }
       }
   } else if (type === 'star') {
       const starPoints = Math.max(3, Math.floor(growth));
-      for (let i = 0; i < starPoints * 2; i++) {
-          const theta = (i / (starPoints * 2)) * 2 * Math.PI;
-          const r = i % 2 === 0 ? outerRadius : innerRadius;
-          const x = r * Math.cos(theta);
-          const y = r * Math.sin(theta);
-          const sx = (x * Math.cos(rotRad) - y * Math.sin(rotRad)) * scale + cx;
-          const sy = (x * Math.sin(rotRad) + y * Math.cos(rotRad)) * scale + cy;
-          points.push({ x: sx, y: sy });
+      const cCount = Math.max(1, Math.floor(settings.contourCount || 1));
+      const totalPts = starPoints * 2;
+      for (let c = 0; c < cCount; c++) {
+          const sizeMod = 1 - (c / cCount);
+          const cOut = outerRadius * sizeMod;
+          const cIn = innerRadius * sizeMod;
+          for (let i = 0; i <= totalPts; i++) {
+              const stepI = (c % 2 === 0) ? i : (totalPts - i);
+              const shiftedI = stepI + 1; // start at inner rad
+              const theta = (shiftedI / totalPts) * 2 * Math.PI;
+              const r = shiftedI % 2 === 0 ? cOut : cIn;
+              const x = r * Math.cos(theta);
+              const y = r * Math.sin(theta);
+              const sx = (x * Math.cos(rotRad) - y * Math.sin(rotRad)) * scale + cx;
+              const sy = (x * Math.sin(rotRad) + y * Math.cos(rotRad)) * scale + cy;
+              
+              if (c === 0 && i === 0 && points.length > 0) {
+                  points.push({ x: sx, y: sy, isJump: true });
+              }
+              points.push({ x: sx, y: sy, isJump: false });
+          }
       }
-      if (points.length > 0) points.push({ ...points[0] });
   } else if (type === 'heart') {
-      const totalSteps = Math.floor(resolution * loops);
-      for (let i = 0; i <= totalSteps; i++) {
-          const t = (i / resolution) * 2 * Math.PI;
+      const totalSteps = Math.floor(resolution);
+      const cCount = Math.max(1, Math.floor(settings.contourCount || 1));
+      
+      let tOffset = 0;
+      let minR2 = Infinity;
+      for (let i = 0; i < 360; i++) {
+          const t = (i / 360) * 2 * Math.PI;
           const x = 16 * Math.pow(Math.sin(t), 3) / 16;
-          // Invert y math
           const y = -(13 * Math.cos(t) - 5 * Math.cos(2*t) - 2 * Math.cos(3*t) - Math.cos(4*t)) / 16;
-          
-          const sx = (x * Math.cos(rotRad) - y * Math.sin(rotRad)) * (workspace.w / 2 * scale) + cx;
-          const sy = (x * Math.sin(rotRad) + y * Math.cos(rotRad)) * (workspace.h / 2 * scale) + cy;
-          points.push({ x: sx, y: sy });
+          if (x*x + y*y < minR2) {
+              minR2 = x*x + y*y;
+              tOffset = t;
+          }
+      }
+
+      for (let c = 0; c < cCount; c++) {
+          const sizeMod = 1 - (c / cCount);
+          for (let i = 0; i <= totalSteps; i++) {
+              const stepI = (c % 2 === 0) ? i : (totalSteps - i);
+              const t = (stepI / totalSteps) * 2 * Math.PI + tOffset;
+              const x = (16 * Math.pow(Math.sin(t), 3) / 16) * sizeMod;
+              // Invert y math
+              const y = (-(13 * Math.cos(t) - 5 * Math.cos(2*t) - 2 * Math.cos(3*t) - Math.cos(4*t)) / 16) * sizeMod;
+              
+              const sx = (x * Math.cos(rotRad) - y * Math.sin(rotRad)) * (workspace.w / 2 * scale) + cx;
+              const sy = (x * Math.sin(rotRad) + y * Math.cos(rotRad)) * (workspace.h / 2 * scale) + cy;
+              
+              if (c === 0 && i === 0 && points.length > 0) {
+                  points.push({ x: sx, y: sy, isJump: true });
+              }
+              points.push({ x: sx, y: sy, isJump: false });
+          }
       }
   } else if (type === 'rose') {
       const k = Math.max(1, Math.floor(growth));
-      const totalSteps = Math.floor(resolution * loops);
-      for (let i = 0; i <= totalSteps; i++) {
-          const t = (i / resolution) * 2 * Math.PI;
-          const rRadius = Math.cos(k * t);
-          const x = rRadius * Math.cos(t);
-          const y = rRadius * Math.sin(t);
-          const sx = (x * Math.cos(rotRad) - y * Math.sin(rotRad)) * (workspace.w / 2 * scale) + cx;
-          const sy = (x * Math.sin(rotRad) + y * Math.cos(rotRad)) * (workspace.h / 2 * scale) + cy;
-          points.push({ x: sx, y: sy });
+      const totalSteps = Math.floor(resolution);
+      const cCount = Math.max(1, Math.floor(settings.contourCount || 1));
+      const tOffset = Math.PI / (2 * k);
+      for (let c = 0; c < cCount; c++) {
+          const sizeMod = 1 - (c / cCount);
+          for (let i = 0; i <= totalSteps; i++) {
+              const stepI = (c % 2 === 0) ? i : (totalSteps - i);
+              const t = (stepI / totalSteps) * 2 * Math.PI + tOffset;
+              const rRadius = Math.cos(k * t) * sizeMod;
+              const x = rRadius * Math.cos(t);
+              const y = rRadius * Math.sin(t);
+              const sx = (x * Math.cos(rotRad) - y * Math.sin(rotRad)) * (workspace.w / 2 * scale) + cx;
+              const sy = (x * Math.sin(rotRad) + y * Math.cos(rotRad)) * (workspace.h / 2 * scale) + cy;
+              
+              if (c === 0 && i === 0 && points.length > 0) {
+                  points.push({ x: sx, y: sy, isJump: true });
+              }
+              points.push({ x: sx, y: sy, isJump: false });
+          }
       }
   } else if (type === 'phyllotaxis') {
       const totalSteps = Math.floor(resolution * loops);
@@ -253,6 +308,104 @@ export const generatePattern = (settings: PatternSettings, workspace: { w: numbe
       
       const maxDepth = fractalDepth || 6;
       drawTree(0, 0, outerRadius || 50, -Math.PI / 2, maxDepth);
+  } else if (type === 'fractal_leaf') {
+      let stateStr = "X";
+      const maxDepth = Math.min(Math.max((fractalDepth || 6) - 1, 1), 7); 
+      for (let i = 0; i < maxDepth; i++) {
+          let nextStr = "";
+          for (const char of stateStr) {
+              if (char === 'X') {
+                  nextStr += "F+[[X]-X]-F[-FX]+X";
+              } else if (char === 'F') {
+                  nextStr += "FF";
+              } else {
+                  nextStr += char;
+              }
+          }
+          stateStr = nextStr;
+      }
+
+      let curX = 0;
+      let curY = 0;
+      let curA = -Math.PI / 2;
+      const angleStep = (fractalBranchFactor || 25) * (Math.PI / 180);
+      const stack: {x: number, y: number, a: number}[] = [];
+
+      let minX = 0, maxX = 0, minY = 0, maxY = 0;
+      for (const char of stateStr) {
+          if (char === 'F') {
+              curX += Math.cos(curA);
+              curY += Math.sin(curA);
+              minX = Math.min(minX, curX);
+              maxX = Math.max(maxX, curX);
+              minY = Math.min(minY, curY);
+              maxY = Math.max(maxY, curY);
+          } else if (char === '+') {
+              curA += angleStep;
+          } else if (char === '-') {
+              curA -= angleStep;
+          } else if (char === '[') {
+              stack.push({ x: curX, y: curY, a: curA });
+          } else if (char === ']') {
+              const s = stack.pop()!;
+              curX = s.x; curY = s.y; curA = s.a;
+          }
+      }
+
+      const w = maxX - minX || 1;
+      const h = maxY - minY || 1;
+      const baseFitScale = (outerRadius * 2) / Math.max(w, h);
+      const fitScale = baseFitScale * 0.9;
+      const offsetX = - (minX + w/2) * fitScale;
+      const offsetY = - (minY + h/2) * fitScale;
+
+      curX = 0;
+      curY = 0;
+      curA = -Math.PI / 2;
+      stack.length = 0;
+
+      for (const char of stateStr) {
+          if (char === 'F') {
+              const nextX = curX + Math.cos(curA);
+              const nextY = curY + Math.sin(curA);
+              
+              const px2 = nextX * fitScale + offsetX;
+              const py2 = nextY * fitScale + offsetY;
+              
+              const sx2 = (px2 * Math.cos(rotRad) - py2 * Math.sin(rotRad)) * scale + cx;
+              const sy2 = (px2 * Math.sin(rotRad) + py2 * Math.cos(rotRad)) * scale + cy;
+              
+              if (points.length === 0) {
+                  const px1 = curX * fitScale + offsetX;
+                  const py1 = curY * fitScale + offsetY;
+                  const sx1 = (px1 * Math.cos(rotRad) - py1 * Math.sin(rotRad)) * scale + cx;
+                  const sy1 = (px1 * Math.sin(rotRad) + py1 * Math.cos(rotRad)) * scale + cy;
+                  points.push({ x: sx1, y: sy1, isJump: true });
+              }
+              
+              points.push({ x: sx2, y: sy2, isJump: false });
+              
+              curX = nextX;
+              curY = nextY;
+          } else if (char === '+') {
+              curA += angleStep;
+          } else if (char === '-') {
+              curA -= angleStep;
+          } else if (char === '[') {
+              stack.push({ x: curX, y: curY, a: curA });
+          } else if (char === ']') {
+              const s = stack.pop()!;
+              curX = s.x; curY = s.y; curA = s.a;
+              
+              // RETRACE line back to the pop location to keep it a single continuous line!
+              const px = curX * fitScale + offsetX;
+              const py = curY * fitScale + offsetY;
+              const sx = (px * Math.cos(rotRad) - py * Math.sin(rotRad)) * scale + cx;
+              const sy = (px * Math.sin(rotRad) + py * Math.cos(rotRad)) * scale + cy;
+              
+              points.push({ x: sx, y: sy, isJump: false });
+          }
+      }
   } else if (type === 'chladni_plate') {
       const totalSteps = Math.floor(resolution * loops) * 2;
       const nm = chladniM || 4;
@@ -308,12 +461,11 @@ export const generatePattern = (settings: PatternSettings, workspace: { w: numbe
           points.push({ x: sx, y: sy });
       }
   } else if (['ellipse', 'semicircle', 'rectangle', 'diamond', 'trapezoid', 'cardioid', 'limacon', 'lemniscate', 'astroid', 'deltoid', 'nephroid', 'trefoil', 'quatrefoil', 'cinquefoil', 'figure8', 'infinity', 'torus2d', 'golden_spiral', 'teardrop', 'cross'].includes(type)) {
-      const totalSteps = Math.floor(resolution * loops) * 2;
-      const baseR = outerRadius;
-      for (let i = 0; i <= totalSteps; i++) {
-          const t = (i / totalSteps) * 2 * Math.PI * loops;
+      const cCount = Math.max(1, Math.floor(settings.contourCount || 1));
+      const cRatio = settings.shapeAspectRatio || (type === 'diamond' ? 1.5 : 1);
+      
+      const getShapePoint = (t: number) => {
           let nx = Math.cos(t), ny = Math.sin(t);
-          
           if (type === 'ellipse') { nx = Math.cos(t); ny = 0.6 * Math.sin(t); }
           else if (type === 'semicircle') { nx = Math.cos(t); ny = Math.max(0, Math.sin(t)); }
           else if (type === 'cardioid') { const r = 1 + Math.cos(t); nx = r * Math.cos(t)/2; ny = r * Math.sin(t)/2; }
@@ -331,21 +483,59 @@ export const generatePattern = (settings: PatternSettings, workspace: { w: numbe
           else if (type === 'golden_spiral') { const r = Math.pow(1.618, t / (Math.PI*2)) / Math.pow(1.618, Math.max(1, loops)); nx = r * Math.cos(t); ny = r * Math.sin(t); }
           else if (type === 'teardrop') { nx = Math.cos(t); ny = Math.sin(t) * Math.pow(Math.sin(t/2), 2); }
           else if (type === 'cross') { const r = Math.pow(Math.cos(2*t), 2); nx = r * Math.cos(t); ny = r * Math.sin(t); }
+          else if (type === 'trapezoid') {
+              const c_t = Math.cos(t), s_t = Math.sin(t);
+              const dc = Math.pow(Math.abs(c_t), 10);
+              const ds = Math.pow(Math.abs(s_t), 10);
+              const r = 1 / Math.pow(dc + ds, 1/10);
+              nx = r * c_t * (s_t > 0 ? 0.6 : 1.0); 
+              ny = r * s_t;
+          }
           else {
               const n = (type === 'diamond' ? 1 : (type === 'rectangle' ? 10 : 2));
-              const c = Math.cos(t), s = Math.sin(t);
-              const dc = Math.pow(Math.abs(c), n);
-              const ds = Math.pow(Math.abs(s), n);
-              // Wait, rectangle eq: |x|^n + |y|^n = 1 => r = 1 / ( |c|^n + |s|^n )^(1/n)
+              const c_t = Math.cos(t), s_t = Math.sin(t);
+              const dc = Math.pow(Math.abs(c_t), n);
+              const ds = Math.pow(Math.abs(s_t), n);
               const real_r = 1 / Math.pow(dc + ds, 1/n);
-              nx = real_r * c; ny = real_r * s;
+              nx = real_r * c_t; ny = real_r * s_t;
           }
+          ny *= cRatio;
+          return { nx, ny };
+      };
+
+      const actualLoops = type === 'golden_spiral' ? Math.max(1, loops) : 1;
+      
+      let tOffset = 0;
+      let minR2 = Infinity;
+      for (let i = 0; i < 360; i++) {
+          const t = (i / 360) * 2 * Math.PI * actualLoops;
+          const { nx, ny } = getShapePoint(t);
+          if (nx*nx + ny*ny < minR2) {
+              minR2 = nx*nx + ny*ny;
+              tOffset = t;
+          }
+      }
+
+      for (let c = 0; c < cCount; c++) {
+          const sizeMod = 1 - (c / cCount);
+          const baseR = outerRadius * sizeMod;
+          const totalSteps = Math.floor(resolution * actualLoops) * 2;
           
-          const x = nx * baseR;
-          const y = ny * baseR;
-          const sx = (x * Math.cos(rotRad) - y * Math.sin(rotRad)) * scale + cx;
-          const sy = (x * Math.sin(rotRad) + y * Math.cos(rotRad)) * scale + cy;
-          points.push({ x: sx, y: sy });
+          for (let i = 0; i <= totalSteps; i++) {
+              const stepI = (c % 2 === 0) ? i : (totalSteps - i);
+              const t = (stepI / totalSteps) * 2 * Math.PI * actualLoops + tOffset;
+              const { nx, ny } = getShapePoint(t);
+              
+              const x = nx * baseR;
+              const y = ny * baseR;
+              const sx = (x * Math.cos(rotRad) - y * Math.sin(rotRad)) * scale + cx;
+              const sy = (x * Math.sin(rotRad) + y * Math.cos(rotRad)) * scale + cy;
+              
+              if (c === 0 && i === 0 && points.length > 0) {
+                  points.push({ x: sx, y: sy, isJump: true });
+              }
+              points.push({ x: sx, y: sy, isJump: false });
+          }
       }
   }
 
@@ -404,7 +594,7 @@ export const generatePattern = (settings: PatternSettings, workspace: { w: numbe
 
   // Apply Radial Mirroring
   if (mirrorCount && mirrorCount > 1) {
-    const original = [...points];
+    const original = points.slice();
     points = [];
     for (let i = 0; i < mirrorCount; i++) {
         const angle = (i * 2 * Math.PI) / mirrorCount;
@@ -418,7 +608,9 @@ export const generatePattern = (settings: PatternSettings, workspace: { w: numbe
             };
         });
         if (i % 2 === 1) slice.reverse();
-        points.push(...slice);
+        for(let j=0; j<slice.length; j++) {
+            points.push(slice[j]);
+        }
     }
   }
 
@@ -440,9 +632,9 @@ export const generatePattern = (settings: PatternSettings, workspace: { w: numbe
 
       if (wiperPosition === 'before') {
           wiperPoints.reverse(); // Outside -> In
-          points = [...wiperPoints, ...points];
+          points = wiperPoints.concat(points);
       } else if (wiperPosition === 'after') {
-          points = [...points, ...wiperPoints]; // Inside -> Out
+          points = points.concat(wiperPoints); // Inside -> Out
       }
   }
 
@@ -454,38 +646,9 @@ const distSq = (p1: Point, p2: Point) => {
   return (p1.x - p2.x) ** 2 + (p1.y - p2.y) ** 2;
 };
 
-// Sobel Edge Detection Kernel application
-const getPixelIntensity = (data: Uint8ClampedArray, width: number, height: number, x: number, y: number) => {
-  if (x < 0 || x >= width || y < 0 || y >= height) return 0;
-  const idx = (y * width + x) * 4;
-  return 0.299 * data[idx] + 0.587 * data[idx + 1] + 0.114 * data[idx + 2];
-};
 
 const detectEdges = (imageData: ImageData, threshold: number, density: number): Point[] => {
-  const { width, height, data } = imageData;
-  const points: Point[] = [];
-  const stride = Math.max(1, Math.floor(density));
-  
-  for (let y = 1; y < height - 1; y += stride) {
-    for (let x = 1; x < width - 1; x += stride) {
-      const p00 = getPixelIntensity(data, width, height, x - 1, y - 1);
-      const p01 = getPixelIntensity(data, width, height, x, y - 1);
-      const p02 = getPixelIntensity(data, width, height, x + 1, y - 1);
-      const p10 = getPixelIntensity(data, width, height, x - 1, y);
-      const p12 = getPixelIntensity(data, width, height, x + 1, y);
-      const p20 = getPixelIntensity(data, width, height, x - 1, y + 1);
-      const p21 = getPixelIntensity(data, width, height, x, y + 1);
-      const p22 = getPixelIntensity(data, width, height, x + 1, y + 1);
-
-      const gx = (-1 * p00) + (1 * p02) + (-2 * p10) + (2 * p12) + (-1 * p20) + (1 * p22);
-      const gy = (-1 * p00) + (-2 * p01) + (-1 * p02) + (1 * p20) + (2 * p21) + (1 * p22);
-      const magnitude = Math.sqrt(gx * gx + gy * gy);
-      if (magnitude > (255 - threshold)) {
-        points.push({ x, y });
-      }
-    }
-  }
-  return points;
+  return detectCannyEdges(imageData, threshold, density);
 };
 
 const detectDarkness = (imageData: ImageData, threshold: number, density: number): Point[] => {
@@ -760,7 +923,7 @@ const thinPoints = (points: Point[], width: number, height: number): Point[] => 
 
 const smoothPath = (points: Point[], iterations: number): Point[] => {
     if (points.length < 3 || iterations <= 0) return points;
-    let current = [...points];
+    let current = points.slice();
     for (let iter = 0; iter < iterations; iter++) {
         const next = [current[0]];
         for (let i = 1; i < current.length - 1; i++) {
@@ -1065,7 +1228,7 @@ function generateSandArt(imageData: ImageData, settings: GCodeSettings): Point[]
     
     paths.sort((a, b) => b.length - a.length);
     
-    const trunk: Point[] = [...paths[0]];
+    let trunk: Point[] = paths[0].slice();
     const unvisited = paths.slice(1);
     
     while (unvisited.length > 0) {
@@ -1120,7 +1283,7 @@ function generateSandArt(imageData: ImageData, settings: GCodeSettings): Point[]
         for(let j = 0; j <= bestPathPointIdx; j++) splicedPath.push({ ...p[j] });
         
         splicedPath.push({ ...trunk[bestTrunkIdx] });
-        trunk.splice(bestTrunkIdx, 0, ...splicedPath);
+        trunk = trunk.slice(0, bestTrunkIdx).concat(splicedPath, trunk.slice(bestTrunkIdx));
         unvisited.splice(bestPathIdx, 1);
     }
     

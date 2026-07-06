@@ -1,5 +1,6 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { removeBackground } from '@imgly/background-removal';
 import opentype from 'opentype.js';
 import { processImageToSingleLine, generateGCode, generateTHR, generatePattern } from './utils/pathAlgorithms';
 import { reflectInBox, reflectInCircle, reflectValue } from './utils/reflection';
@@ -84,6 +85,8 @@ const SliderControl: React.FC<SliderControlProps> = ({ label, value, min, max, s
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'image' | 'pattern'>('image');
   const [imageSrc, setImageSrc] = useState<string | null>(null);
+  const [bgRemovedSrc, setBgRemovedSrc] = useState<string | null>(null);
+  const [isRemovingBackground, setIsRemovingBackground] = useState(false);
   const [customFont, setCustomFont] = useState<any>(null);
   const [customFontName, setCustomFontName] = useState<string>('');
   const fontInputRef = useRef<HTMLInputElement>(null);
@@ -135,7 +138,10 @@ const App: React.FC = () => {
     flipY: false,
     thrFlipX: false,
     thrFlipY: false,
-    thrSwapXY: false
+    thrSwapXY: false,
+    photoBrightness: 100,
+    photoContrast: 100,
+    photoDither: false
   });
 
   const [patternLayers, setPatternLayers] = useState<PatternSettings[]>([{
@@ -245,7 +251,9 @@ const App: React.FC = () => {
                 combinedPath.push({ ...combinedPath[combinedPath.length - 1], isJump: true });
                 combinedPath.push({ ...layerPath[0], isJump: true });
             }
-            combinedPath.push(...layerPath);
+            for (let i = 0; i < layerPath.length; i++) {
+                combinedPath.push(layerPath[i]);
+            }
         }
       });
       setPatternPath(combinedPath);
@@ -254,7 +262,7 @@ const App: React.FC = () => {
     }
   }, [patternLayers, settings.scaleX, settings.scaleY, settings.workspaceType, activeTab]);
 
-  const currentPath = activeTab === 'image' ? processedPath : patternPath;
+  const currentPath = activeTab !== 'pattern' ? processedPath : patternPath;
 
   const handleFontUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -279,6 +287,9 @@ const App: React.FC = () => {
     reader.onload = async (event) => {
       const src = event.target?.result as string;
       setImageSrc(src);
+      setBgRemovedSrc(null);
+      setIsRemovingBackground(false);
+
       try {
         const result = await analyzeImageForCNC(src);
         setAiMeta(result);
@@ -290,11 +301,14 @@ const App: React.FC = () => {
   };
 
   const processImage = useCallback(() => {
-    if (!imageSrc) return;
+    if (settings.removeBackground && !bgRemovedSrc) return;
+    const activeImageSrc = settings.removeBackground ? bgRemovedSrc : imageSrc;
+    if (!activeImageSrc) return;
     setIsProcessing(true);
     setTimeout(() => {
       const img = new Image();
-      img.src = imageSrc;
+      img.src = activeImageSrc;
+      img.crossOrigin = 'Anonymous';
       img.onload = () => {
         const maxRes = settings.processingMode === 'fill' ? 800 : 1000;
         let w = img.width, h = img.height;
@@ -309,7 +323,13 @@ const App: React.FC = () => {
         offCanvas.width = w; offCanvas.height = h;
         const ctx = offCanvas.getContext('2d');
         if (!ctx) return;
-        ctx.fillStyle = 'white'; ctx.fillRect(0, 0, w, h); ctx.drawImage(img, 0, 0, w, h);
+        ctx.fillStyle = 'white'; ctx.fillRect(0, 0, w, h); 
+        
+        if (settings.photoContrast !== 100 || settings.photoBrightness !== 100) {
+            ctx.filter = `brightness(${settings.photoBrightness}%) contrast(${settings.photoContrast}%)`;
+        }
+        
+        ctx.drawImage(img, 0, 0, w, h);
         const imageData = ctx.getImageData(0, 0, w, h);
         setImgDimensions({ w, h });
         setProcessedPath(processImageToSingleLine(imageData, settings, { w, h }));
@@ -317,9 +337,33 @@ const App: React.FC = () => {
       };
       img.onerror = () => setIsProcessing(false);
     }, 100);
-  }, [imageSrc, settings.threshold, settings.pointDensity, settings.detectionMode, settings.enableThinning, settings.smoothing, settings.processingMode, settings.fillStyle, settings.fillSpacing, settings.fillAngle, settings.invert]);
+  }, [imageSrc, bgRemovedSrc, settings.threshold, settings.pointDensity, settings.detectionMode, settings.enableThinning, settings.smoothing, settings.processingMode, settings.fillStyle, settings.fillSpacing, settings.fillAngle, settings.invert, settings.photoBrightness, settings.photoContrast, settings.removeBackground]);
 
-  useEffect(() => { if (imageSrc) processImage(); }, [processImage]);
+  useEffect(() => {
+    let active = true;
+    const handleBackgroundRemoval = async () => {
+        if (!imageSrc || !settings.removeBackground) return;
+        if (bgRemovedSrc || isRemovingBackground) return;
+        try {
+            setIsRemovingBackground(true);
+            const blob = await removeBackground(imageSrc, {
+                publicPath: 'https://staticimgly.com/@imgly/background-removal-data/1.7.0/dist/',
+                fetchArgs: { cache: 'no-store' }
+            });
+            if (!active) return;
+            const url = URL.createObjectURL(blob);
+            setBgRemovedSrc(url);
+        } catch (error) {
+            console.error("Background removal failed:", error);
+        } finally {
+            if (active) setIsRemovingBackground(false);
+        }
+    };
+    handleBackgroundRemoval();
+    return () => { active = false; };
+  }, [activeTab, imageSrc, settings.removeBackground, bgRemovedSrc, isRemovingBackground]);
+
+  useEffect(() => { if (imageSrc) processImage(); }, [processImage, bgRemovedSrc]);
 
   useEffect(() => {
     if (isPlaying && currentPath.length > 0) {
@@ -340,7 +384,7 @@ const App: React.FC = () => {
     if (activeTab === 'pattern') return patternPath;
     if (processedPath.length < 2) return processedPath;
     
-    let path = [...processedPath];
+    let path = processedPath.slice();
     const { x: placeX, y: placeY, width: placeW, height: placeH } = settings.imagePlacement;
     const cx = settings.scaleX / 2;
     const cy = settings.scaleY / 2;
@@ -389,7 +433,31 @@ const App: React.FC = () => {
         path.unshift({ ...mmToPixel(cx + Math.cos(angle) * radius, cy + Math.sin(angle) * radius), isJump: true });
     }
 
-    if (settings.pathEndPreference === 'center') {
+    if (aiMeta?.eyeLocation) {
+        const targetX = aiMeta.eyeLocation.x * (imgDimensions.w || 1);
+        const targetY = aiMeta.eyeLocation.y * (imgDimensions.h || 1);
+        let closestIdx = -1;
+        let minDist = Infinity;
+        for (let i = 0; i < path.length; i++) {
+            const dx = path[i].x - targetX;
+            const dy = path[i].y - targetY;
+            const distSq = dx * dx + dy * dy;
+            if (distSq < minDist) {
+                minDist = distSq;
+                closestIdx = i;
+            }
+        }
+        if (closestIdx !== -1) {
+            const traceBack = [];
+            for (let i = path.length - 2; i >= closestIdx; i--) {
+                traceBack.push({ ...path[i], isJump: false });
+            }
+            for (let i = 0; i < traceBack.length; i++) {
+                path.push(traceBack[i]);
+            }
+            path.push({ x: targetX, y: targetY, isJump: false });
+        }
+    } else if (settings.pathEndPreference === 'center') {
         path.push(mmToPixel(cx, cy));
     } else if (settings.pathEndPreference === 'edge') {
         const finalP = mmPath[mmPath.length - 1];
@@ -399,7 +467,7 @@ const App: React.FC = () => {
     }
 
     return path;
-  }, [processedPath, patternPath, activeTab, settings, imgDimensions]);
+  }, [processedPath, patternPath, activeTab, settings, imgDimensions, aiMeta]);
 
   const drawCanvas = useCallback(() => {
     const canvas = canvasRef.current;
@@ -435,35 +503,45 @@ const App: React.FC = () => {
     const worldScale = baseScale * zoom;
     const pixelWidth = 1 / Math.max(0.0001, worldScale);
 
-    // Workspace Boundary
-    ctx.lineWidth = pixelWidth;
-    ctx.strokeStyle = '#334155';
+    // Workspace Boundary / Sand Base
+    ctx.beginPath();
     if (settings.workspaceType === 'circular') {
-        ctx.beginPath();
         ctx.arc(sX/2, sY/2, sX/2, 0, Math.PI*2);
-        ctx.stroke();
     } else {
-        ctx.strokeRect(0, 0, sX, sY);
+        ctx.rect(0, 0, sX, sY);
     }
 
-    // Grid (every 20mm)
-    ctx.strokeStyle = '#1e293b';
-    ctx.beginPath();
-    for (let i = 0; i <= sX; i += 20) { ctx.moveTo(i, 0); ctx.lineTo(i, sY); }
-    for (let i = 0; i <= sY; i += 20) { ctx.moveTo(0, i); ctx.lineTo(sX, i); }
+    // LED Glow / Rim
+    ctx.shadowColor = 'rgba(6, 182, 212, 0.6)';
+    ctx.shadowBlur = 40 * pixelWidth;
+    ctx.lineWidth = 12 * pixelWidth;
+    ctx.strokeStyle = '#020617';
     ctx.stroke();
+    ctx.shadowBlur = 0;
 
-    // Origin Mark
-    ctx.fillStyle = '#f43f5e';
+    // Sand Gradient Background
+    const cx = sX / 2;
+    const cy = sY / 2;
+    const sandGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(sX, sY) / 2);
+    sandGrad.addColorStop(0, '#f1ebd9'); // lighter center
+    sandGrad.addColorStop(1, '#dfcca8'); // darker edges
+    ctx.fillStyle = sandGrad;
+    ctx.fill();
+
+    ctx.save();
+    ctx.clip(); // Restrict everything to the sand area
+
+    // Origin Mark (faint)
+    ctx.fillStyle = 'rgba(244, 63, 94, 0.3)';
     if (settings.workspaceType === 'circular') {
         ctx.beginPath(); ctx.arc(sX/2, sY/2, 3 * pixelWidth, 0, Math.PI*2); ctx.fill();
     } else {
         ctx.beginPath(); ctx.arc(0, sY, 3 * pixelWidth, 0, Math.PI*2); ctx.fill();
     }
 
-    if (activeTab === 'image') {
+    if (activeTab !== 'pattern') {
       const { x, y, width: w, height: h } = settings.imagePlacement;
-      ctx.strokeStyle = '#38bdf8';
+      ctx.strokeStyle = 'rgba(56, 189, 248, 0.5)';
       ctx.lineWidth = pixelWidth;
       const dashLen = 5 * pixelWidth;
       if (isFinite(dashLen) && dashLen > 0) ctx.setLineDash([dashLen, dashLen]);
@@ -471,7 +549,7 @@ const App: React.FC = () => {
       ctx.setLineDash([]);
 
       const handleSize = 8 * pixelWidth;
-      ctx.fillStyle = '#38bdf8';
+      ctx.fillStyle = 'rgba(56, 189, 248, 0.5)';
       [['tl', x, y], ['tr', x+w, y], ['bl', x, y+h], ['br', x+w, y+h]].forEach(([_id, hx, hy]) => {
           ctx.fillRect(Number(hx)-handleSize/2, Number(hy)-handleSize/2, handleSize, handleSize);
       });
@@ -479,15 +557,14 @@ const App: React.FC = () => {
 
     const finalPath = getExportPath();
     if (finalPath.length > 0) {
-        ctx.beginPath();
-        ctx.lineWidth = 1.2 * pixelWidth;
-        ctx.strokeStyle = '#38bdf8';
         const maxIdx = Math.floor((Math.max(0, Math.min(100, simProgress))/100) * finalPath.length);
         
+        // Collect points to draw
+        const drawPoints = [];
         for (let i = 0; i < maxIdx; i++) {
             const p = finalPath[i];
-            let wx, wy;
-            if (activeTab === 'image') {
+            let wx = p.x, wy = p.y;
+            if (activeTab !== 'pattern') {
                 let nX = p.x / (imgDimensions.w || 1);
                 let nY = p.y / (imgDimensions.h || 1);
                 if (settings.flipX) nX = 1 - nX;
@@ -496,10 +573,7 @@ const App: React.FC = () => {
                 wx = placeX + nX * placeW;
                 wy = placeY + nY * placeH;
 
-                // REFLECTION PREVIEW
                 if (settings.workspaceType === 'circular') {
-                    const cx = settings.scaleX / 2;
-                    const cy = settings.scaleY / 2;
                     const r_limit = Math.min(settings.scaleX, settings.scaleY) / 2;
                     const dx = wx - cx;
                     const dy = wy - cy;
@@ -514,52 +588,68 @@ const App: React.FC = () => {
                     wx = reflectValue(wx, 0, settings.scaleX);
                     wy = reflectValue(wy, 0, settings.scaleY);
                 }
-            } else {
-                wx = p.x;
-                wy = p.y;
             }
+            drawPoints.push({ x: wx, y: wy, isJump: p.isJump });
+        }
 
-            if (i === 0 || p.isJump) ctx.moveTo(wx, wy);
-            else ctx.lineTo(wx, wy);
+        ctx.lineJoin = 'round';
+        ctx.lineCap = 'round';
+
+        // Base sand groove (dark shadow)
+        ctx.beginPath();
+        ctx.lineWidth = 6 * pixelWidth;
+        ctx.strokeStyle = '#d4c1a0'; // darker sand for shadow
+        for (let i = 0; i < drawPoints.length; i++) {
+            const p = drawPoints[i];
+            if (i === 0 || p.isJump) ctx.moveTo(p.x, p.y);
+            else ctx.lineTo(p.x, p.y);
+        }
+        ctx.stroke();
+
+        // Highlight for the groove edge
+        ctx.beginPath();
+        ctx.lineWidth = 2 * pixelWidth;
+        ctx.strokeStyle = '#fef6e4'; // highlight
+        for (let i = 0; i < drawPoints.length; i++) {
+            const p = drawPoints[i];
+            if (i === 0 || p.isJump) ctx.moveTo(p.x + 1.5 * pixelWidth, p.y + 1.5 * pixelWidth);
+            else ctx.lineTo(p.x + 1.5 * pixelWidth, p.y + 1.5 * pixelWidth);
+        }
+        ctx.stroke();
+        
+        // Inner shadow deeper groove
+        ctx.beginPath();
+        ctx.lineWidth = 3 * pixelWidth;
+        ctx.strokeStyle = '#c5ae8a'; // deeper dark
+        for (let i = 0; i < drawPoints.length; i++) {
+            const p = drawPoints[i];
+            if (i === 0 || p.isJump) ctx.moveTo(p.x, p.y);
+            else ctx.lineTo(p.x, p.y);
         }
         ctx.stroke();
 
         if (maxIdx > 0) {
-            const last = finalPath[maxIdx-1];
-            let wx, wy;
-            if (activeTab === 'image') {
-                let nX = last.x / (imgDimensions.w || 1);
-                let nY = last.y / (imgDimensions.h || 1);
-                if (settings.flipX) nX = 1 - nX;
-                if (settings.flipY) nY = 1 - nY;
-                const { x: placeX, y: placeY, width: placeW, height: placeH } = settings.imagePlacement;
-                wx = placeX + nX * placeW;
-                wy = placeY + nY * placeH;
+            const last = drawPoints[maxIdx-1];
+            // Draw a realistic shiny silver ball
+            const gradient = ctx.createRadialGradient(last.x - 2 * pixelWidth, last.y - 2 * pixelWidth, 1 * pixelWidth, last.x, last.y, 6 * pixelWidth);
+            gradient.addColorStop(0, '#ffffff'); // bright reflection
+            gradient.addColorStop(0.5, '#94a3b8'); // silver
+            gradient.addColorStop(1, '#1e293b'); // dark edge
 
-                // REFLECTION PREVIEW
-                if (settings.workspaceType === 'circular') {
-                    const cx = settings.scaleX / 2;
-                    const cy = settings.scaleY / 2;
-                    const r_limit = Math.min(settings.scaleX, settings.scaleY) / 2;
-                    const dx = wx - cx;
-                    const dy = wy - cy;
-                    const dist = Math.sqrt(dx * dx + dy * dy);
-                    if (dist > r_limit && r_limit > 0) {
-                        const reflectedDist = reflectValue(dist, 0, r_limit);
-                        const angle = Math.atan2(dy, dx);
-                        wx = cx + Math.cos(angle) * reflectedDist;
-                        wy = cy + Math.sin(angle) * reflectedDist;
-                    }
-                } else {
-                    wx = reflectValue(wx, 0, settings.scaleX);
-                    wy = reflectValue(wy, 0, settings.scaleY);
-                }
-            } else {
-                wx = last.x;
-                wy = last.y;
-            }
-            ctx.fillStyle = '#facc15';
-            ctx.beginPath(); ctx.arc(wx, wy, 4 * pixelWidth, 0, Math.PI*2); ctx.fill();
+            ctx.shadowColor = 'rgba(0,0,0,0.5)';
+            ctx.shadowBlur = 4 * pixelWidth;
+            ctx.shadowOffsetX = 2 * pixelWidth;
+            ctx.shadowOffsetY = 2 * pixelWidth;
+
+            ctx.beginPath();
+            ctx.arc(last.x, last.y, 5 * pixelWidth, 0, Math.PI*2);
+            ctx.fillStyle = gradient;
+            ctx.fill();
+
+            // Reset shadow
+            ctx.shadowBlur = 0;
+            ctx.shadowOffsetX = 0;
+            ctx.shadowOffsetY = 0;
         }
     }
 
@@ -711,13 +801,13 @@ const App: React.FC = () => {
 
   const handleDownloadGCode = () => {
     const exportPath = getExportPath();
-    const gcode = generateGCode(exportPath, activeTab === 'image' ? imgDimensions.w : settings.scaleX, activeTab === 'image' ? imgDimensions.h : settings.scaleY, settings, aiMeta, activeTab === 'pattern');
+    const gcode = generateGCode(exportPath, activeTab !== 'pattern' ? imgDimensions.w : settings.scaleX, activeTab !== 'pattern' ? imgDimensions.h : settings.scaleY, settings, aiMeta, activeTab === 'pattern');
     downloadFile(gcode, `${aiMeta.title.replace(/\s/g, '_')}.gcode`);
   };
 
   const handleDownloadTHR = () => {
     const exportPath = getExportPath();
-    const thr = generateTHR(exportPath, activeTab === 'image' ? imgDimensions.w : settings.scaleX, activeTab === 'image' ? imgDimensions.h : settings.scaleY, settings, activeTab === 'pattern');
+    const thr = generateTHR(exportPath, activeTab !== 'pattern' ? imgDimensions.w : settings.scaleX, activeTab !== 'pattern' ? imgDimensions.h : settings.scaleY, settings, activeTab === 'pattern');
     downloadFile(thr, `${aiMeta.title.replace(/\s/g, '_')}.thr`);
   };
 
@@ -725,7 +815,7 @@ const App: React.FC = () => {
     const exportPath = getExportPath();
     if (exportPath.length === 0) return;
     
-    const thr = generateTHR(exportPath, activeTab === 'image' ? imgDimensions.w : settings.scaleX, activeTab === 'image' ? imgDimensions.h : settings.scaleY, settings, activeTab === 'pattern');
+    const thr = generateTHR(exportPath, activeTab !== 'pattern' ? imgDimensions.w : settings.scaleX, activeTab !== 'pattern' ? imgDimensions.h : settings.scaleY, settings, activeTab === 'pattern');
     const fileName = `${aiMeta.title.replace(/\s/g, '_')}.thr`;
     
     if (navigator.share) {
@@ -800,12 +890,21 @@ const App: React.FC = () => {
                         <button onClick={() => setSettings({...settings, processingMode: 'outline'})} className={`flex-1 min-w-[70px] text-[10px] font-bold py-2 px-1 rounded-md transition-all ${settings.processingMode === 'outline' ? 'bg-sky-600 text-white shadow-lg' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'}`}>OUTLINE</button>
                         <button onClick={() => setSettings({...settings, processingMode: 'counter'})} className={`flex-1 min-w-[70px] text-[10px] font-bold py-2 px-1 rounded-md transition-all ${settings.processingMode === 'counter' ? 'bg-sky-600 text-white shadow-lg' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'}`}>COUNTER</button>
                         <button onClick={() => setSettings({...settings, processingMode: 'fill'})} className={`flex-1 min-w-[70px] text-[10px] font-bold py-2 px-1 rounded-md transition-all ${settings.processingMode === 'fill' ? 'bg-sky-600 text-white shadow-lg' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'}`}>FILL</button>
+                        <button onClick={() => setSettings({...settings, processingMode: 'hatch'})} className={`flex-1 min-w-[70px] text-[10px] font-bold py-2 px-1 rounded-md transition-all ${settings.processingMode === 'hatch' ? 'bg-sky-600 text-white shadow-lg' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'}`}>HATCH</button>
                         <button onClick={() => setSettings({...settings, processingMode: 'wavy_spiral'})} className={`flex-1 min-w-[70px] text-[10px] font-bold py-2 px-1 rounded-md transition-all ${settings.processingMode === 'wavy_spiral' ? 'bg-sky-600 text-white shadow-lg' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'}`}>WAVY</button>
                         <button onClick={() => setSettings({...settings, processingMode: 'sandart'})} className={`flex-1 min-w-[70px] text-[10px] font-bold py-2 px-1 rounded-md transition-all ${settings.processingMode === 'sandart' ? 'bg-sky-600 text-white shadow-lg' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'}`}>SANDART</button>
                         <button onClick={() => setSettings({...settings, processingMode: 'relief'})} className={`flex-1 min-w-[70px] text-[10px] font-bold py-2 px-1 rounded-md transition-all ${settings.processingMode === 'relief' ? 'bg-sky-600 text-white shadow-lg' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'}`}>RELIEF</button>
-                        <button onClick={() => setSettings({...settings, processingMode: 'hatch'})} className={`flex-1 min-w-[70px] text-[10px] font-bold py-2 px-1 rounded-md transition-all ${settings.processingMode === 'hatch' ? 'bg-sky-600 text-white shadow-lg' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'}`}>HATCH</button>
                     </div>
                     <div className="space-y-1">
+                          <div className="space-y-3 mb-4 p-3 bg-slate-900 rounded-xl border border-slate-800">
+                              <h4 className="text-[10px] uppercase font-bold text-slate-400 mb-2">Image Adjustments</h4>
+                              <label className="flex items-center gap-2 cursor-pointer w-full p-2 bg-slate-950 rounded-lg hover:bg-slate-800/50 transition-colors border border-slate-800">
+                                  <input type="checkbox" checked={settings.removeBackground || false} onChange={e => setSettings({...settings, removeBackground: e.target.checked})} className="rounded bg-slate-800 border-slate-700 text-sky-500 focus:ring-sky-500 focus:ring-offset-slate-900" />
+                                  <span className="text-[10px] font-semibold text-slate-300">Remove Background {isRemovingBackground && <ArrowPathIcon className="w-3 h-3 inline animate-spin ml-1" />}</span>
+                              </label>
+                              <SliderControl label="Brightness" min={10} max={200} step={5} value={settings.photoBrightness || 100} onChange={v => setSettings({...settings, photoBrightness: v})} color="sky" unit="%" />
+                              <SliderControl label="Contrast" min={10} max={200} step={5} value={settings.photoContrast || 100} onChange={v => setSettings({...settings, photoContrast: v})} color="sky" unit="%" />
+                          </div>
                         <SliderControl label="Sensitivity" min={50} max={250} step={1} value={settings.threshold} onChange={v => setSettings({...settings, threshold: v})} color="sky" />
                     </div>
                     {(settings.processingMode === 'fill' || settings.processingMode === 'counter' || settings.processingMode === 'wavy_spiral' || settings.processingMode === 'relief' || settings.processingMode === 'hatch') && (
@@ -875,14 +974,14 @@ const App: React.FC = () => {
                     <div>
                         <label className="text-[10px] text-slate-500 font-bold uppercase block mb-1">Pattern Type</label>
                         <div className="grid grid-cols-2 lg:grid-cols-4 gap-1 font-bold text-[9px]">
-                           {(['spirograph', 'hypotrochoid', 'epitrochoid', 'lissajous', 'spiral', 'polygon', 'star', 'heart', 'rose', 'phyllotaxis', 'modulo', 'superformula', 'fractal_tree', 'chladni_plate', 'petalar', 'orbital', 'ellipse', 'semicircle', 'rectangle', 'diamond', 'trapezoid', 'cardioid', 'limacon', 'lemniscate', 'astroid', 'deltoid', 'nephroid', 'trefoil', 'quatrefoil', 'cinquefoil', 'figure8', 'infinity', 'torus2d', 'golden_spiral', 'teardrop', 'cross', 'bursty_bezier', 'text'] as PatternType[]).map(t => (
+                           {(['spirograph', 'hypotrochoid', 'epitrochoid', 'lissajous', 'spiral', 'polygon', 'star', 'heart', 'rose', 'phyllotaxis', 'modulo', 'superformula', 'fractal_tree', 'fractal_leaf', 'chladni_plate', 'petalar', 'orbital', 'ellipse', 'semicircle', 'rectangle', 'diamond', 'trapezoid', 'cardioid', 'limacon', 'lemniscate', 'astroid', 'deltoid', 'nephroid', 'trefoil', 'quatrefoil', 'cinquefoil', 'figure8', 'infinity', 'torus2d', 'golden_spiral', 'teardrop', 'cross', 'bursty_bezier', 'text'] as PatternType[]).map(t => (
                               <button 
                                 key={t}
                                 onClick={() => updateActiveLayer({ type: t })}
                                 className={`py-2 px-1 rounded uppercase tracking-tighter truncate ${activeLayer.type === t ? 'bg-amber-600 text-white' : 'bg-slate-950 text-slate-500 hover:bg-slate-900 border border-slate-800'}`}
                                 title={t}
                               >
-                                {t === 'spirograph' ? 'spiro' : (t === 'hypotrochoid' ? 'hypo' : (t === 'epitrochoid' ? 'epi' : (t === 'phyllotaxis' ? 'phylla' : (t === 'superformula' ? 'super' : (t === 'fractal_tree' ? 'fractal' : (t === 'chladni_plate' ? 'chladni' : t))))))}
+                                {t === 'spirograph' ? 'spiro' : (t === 'hypotrochoid' ? 'hypo' : (t === 'epitrochoid' ? 'epi' : (t === 'phyllotaxis' ? 'phylla' : (t === 'superformula' ? 'super' : (t === 'fractal_tree' ? 'f-tree' : (t === 'fractal_leaf' ? 'f-leaf' : (t === 'chladni_plate' ? 'chladni' : t)))))))}
                               </button>
                            ))}
                         </div>
@@ -959,11 +1058,15 @@ const App: React.FC = () => {
                        </div>
                     )}
 
-                    {(activeLayer.type === 'spirograph' || activeLayer.type === 'orbital' || activeLayer.type === 'petalar') && (
+                    {(['spirograph', 'hypotrochoid', 'epitrochoid', 'orbital', 'petalar', 'star', 'superformula', 'bursty_bezier'].includes(activeLayer.type)) && (
                        <div className="space-y-3 p-3 bg-slate-950 border border-slate-800 rounded-lg">
-                          <SliderControl label="Outer Radius (Apogee)" min={10} max={300} step={1} value={activeLayer.outerRadius} onChange={v => updateActiveLayer({ outerRadius: v })} />
-                          <SliderControl label="Inner Radius (Perigee)" min={1} max={300} step={1} value={activeLayer.innerRadius} onChange={v => updateActiveLayer({ innerRadius: v })} />
-                          <SliderControl label={activeLayer.type === 'petalar' ? 'Petal Sharpness' : 'Pen Offset'} min={1} max={300} step={1} value={activeLayer.penOffset} onChange={v => updateActiveLayer({ penOffset: v })} />
+                          <SliderControl label={activeLayer.type === 'superformula' ? 'Scaling A' : 'Outer Radius'} min={10} max={300} step={1} value={activeLayer.outerRadius} onChange={v => updateActiveLayer({ outerRadius: v })} />
+                          {activeLayer.type !== 'bursty_bezier' && (
+                              <SliderControl label={activeLayer.type === 'superformula' ? 'Scaling B' : 'Inner Radius'} min={1} max={300} step={1} value={activeLayer.innerRadius} onChange={v => updateActiveLayer({ innerRadius: v })} />
+                          )}
+                          {!['star', 'superformula', 'bursty_bezier'].includes(activeLayer.type) && (
+                             <SliderControl label={activeLayer.type === 'petalar' ? 'Petal Sharpness' : 'Pen Offset'} min={1} max={300} step={1} value={activeLayer.penOffset} onChange={v => updateActiveLayer({ penOffset: v })} />
+                          )}
                        </div>
                     )}
 
@@ -974,13 +1077,19 @@ const App: React.FC = () => {
                        </div>
                     )}
 
-                    {(activeLayer.type === 'spiral' || activeLayer.type === 'polygon' || activeLayer.type === 'star' || activeLayer.type === 'rose' || activeLayer.type === 'phyllotaxis' || activeLayer.type === 'petalar' || activeLayer.type === 'orbital') && (
+                    {['polygon', 'star', 'rose', 'heart'].includes(activeLayer.type) && (
+                       <div className="space-y-3 p-3 bg-slate-950 border border-slate-800 rounded-lg">
+                          <SliderControl label="Num Contours" min={1} max={50} step={1} value={activeLayer.contourCount || 1} onChange={v => updateActiveLayer({ contourCount: v })} />
+                       </div>
+                    )}
+
+                    {(['spiral', 'polygon', 'star', 'rose', 'phyllotaxis', 'petalar', 'orbital', 'bursty_bezier'].includes(activeLayer.type)) && (
                        <div className="space-y-3 p-3 bg-slate-950 border border-slate-800 rounded-lg">
                           <SliderControl 
-                             label={activeLayer.type === 'spiral' || activeLayer.type === 'phyllotaxis' ? 'Growth Rate' : (activeLayer.type === 'petalar' ? 'Num Petals' : (activeLayer.type === 'orbital' ? 'Precession' : (activeLayer.type === 'star' ? 'Points' : (activeLayer.type === 'rose' ? 'Petals (k-value)' : 'Sides'))))}
-                             min={activeLayer.type === 'spiral' || activeLayer.type === 'phyllotaxis' || activeLayer.type === 'orbital' ? 0.1 : (activeLayer.type === 'rose' || activeLayer.type === 'petalar' ? 1 : 3)} 
-                             max={activeLayer.type === 'spiral' || activeLayer.type === 'phyllotaxis' || activeLayer.type === 'orbital' ? 50 : (activeLayer.type === 'star' ? 30 : (activeLayer.type === 'petalar' ? 100 : 20))} 
-                             step={activeLayer.type === 'spiral' || activeLayer.type === 'phyllotaxis' || activeLayer.type === 'orbital' ? 0.1 : 1}
+                             label={['spiral', 'phyllotaxis'].includes(activeLayer.type) ? 'Growth Rate' : (activeLayer.type === 'petalar' ? 'Num Petals' : (activeLayer.type === 'orbital' ? 'Precession' : (activeLayer.type === 'star' ? 'Points' : (activeLayer.type === 'rose' ? 'Petals (k-value)' : (activeLayer.type === 'bursty_bezier' ? 'Bursts' : 'Sides')))))}
+                             min={['spiral', 'phyllotaxis', 'orbital'].includes(activeLayer.type) ? 0.1 : (['rose', 'petalar'].includes(activeLayer.type) ? 1 : 3)} 
+                             max={['spiral', 'phyllotaxis', 'orbital'].includes(activeLayer.type) ? 50 : (activeLayer.type === 'star' ? 30 : (activeLayer.type === 'petalar' ? 100 : (activeLayer.type === 'bursty_bezier' ? 50 : 20)))} 
+                             step={['spiral', 'phyllotaxis', 'orbital'].includes(activeLayer.type) ? 0.1 : 1}
                              value={activeLayer.growth}
                              onChange={v => updateActiveLayer({ growth: v })}
                           />
@@ -1008,7 +1117,7 @@ const App: React.FC = () => {
                         </div>
                     )}
 
-                    {activeLayer.type === 'fractal_tree' && (
+                    {(activeLayer.type === 'fractal_tree' || activeLayer.type === 'fractal_leaf') && (
                         <div className="space-y-3 p-3 bg-slate-950 border border-slate-800 rounded-lg">
                            <SliderControl label="Depth" min={2} max={12} step={1} value={activeLayer.fractalDepth || 6} onChange={v => updateActiveLayer({ fractalDepth: v })} />
                            <SliderControl label="Branch Angle" min={10} max={90} step={1} value={activeLayer.fractalBranchFactor || 25} onChange={v => updateActiveLayer({ fractalBranchFactor: v })} unit="°" />
@@ -1022,6 +1131,14 @@ const App: React.FC = () => {
                              <SliderControl label="M" min={1} max={20} step={1} value={activeLayer.chladniM || 4} onChange={v => updateActiveLayer({ chladniM: v })} />
                            </div>
                         </div>
+                    )}
+
+                    {['ellipse', 'semicircle', 'rectangle', 'diamond', 'trapezoid', 'cardioid', 'limacon', 'lemniscate', 'astroid', 'deltoid', 'nephroid', 'trefoil', 'quatrefoil', 'cinquefoil', 'figure8', 'infinity', 'torus2d', 'golden_spiral', 'teardrop', 'cross'].includes(activeLayer.type) && (
+                       <div className="space-y-3 p-3 bg-slate-950 border border-slate-800 rounded-lg">
+                          <SliderControl label="Base Radius" min={10} max={300} step={1} value={activeLayer.outerRadius} onChange={v => updateActiveLayer({ outerRadius: v })} />
+                          <SliderControl label="Num Contours" min={1} max={50} step={1} value={activeLayer.contourCount || 1} onChange={v => updateActiveLayer({ contourCount: v })} />
+                          <SliderControl label="Aspect Ratio" min={0.1} max={10} step={0.1} value={activeLayer.shapeAspectRatio || (activeLayer.type === 'diamond' ? 1.5 : 1)} onChange={v => updateActiveLayer({ shapeAspectRatio: v })} />
+                       </div>
                     )}
 
                     <div className="space-y-3 pt-4 border-t border-slate-800">
@@ -1234,22 +1351,30 @@ const App: React.FC = () => {
           </div>
         </div>
 
-        {activeTab === 'image' && imageSrc && (
+        {(activeTab === 'image') && imageSrc && (
           <div className="p-4 border-t border-slate-800 bg-slate-950/50">
-            <img src={imageSrc} alt="Original" className="w-full h-auto rounded-lg border border-slate-800 object-contain max-h-24 bg-slate-900 shadow-inner" />
+            <h4 className="text-[10px] font-bold text-slate-500 uppercase mb-2">{'Original Image Preview'}</h4>
+            <img 
+               src={(settings.removeBackground && bgRemovedSrc) ? bgRemovedSrc : imageSrc} 
+               alt="Preview" 
+               className="w-full h-auto rounded border border-slate-800 object-contain max-h-32 bg-white" 
+               style={{
+                 filter: `grayscale(100%) brightness(${settings.photoBrightness || 100}%) contrast(${settings.photoContrast || 100}%) contrast(1000%) brightness(${settings.threshold / 128})`,
+               }}
+            />
           </div>
         )}
 
         <div className="p-4 bg-slate-900 border-t border-slate-800 space-y-2">
           <div className="grid grid-cols-2 gap-2">
-            <button onClick={handleDownloadTHR} disabled={(activeTab === 'image' && !imageSrc) || isProcessing} className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-800 text-white text-[10px] font-black rounded-xl transition-all flex items-center justify-center gap-2 shadow-xl shadow-indigo-900/20 active:scale-95">
+            <button onClick={handleDownloadTHR} disabled={((activeTab === 'image') && !imageSrc) || isProcessing} className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-800 text-white text-[10px] font-black rounded-xl transition-all flex items-center justify-center gap-2 shadow-xl shadow-indigo-900/20 active:scale-95">
               <StarIcon className="w-4 h-4" /> EXPORT .THR
             </button>
-            <button onClick={handleShareTHR} disabled={(activeTab === 'image' && !imageSrc) || isProcessing} className="w-full py-3 bg-teal-600 hover:bg-teal-500 disabled:bg-slate-800 text-white text-[10px] font-black rounded-xl transition-all flex items-center justify-center gap-2 shadow-xl shadow-teal-900/20 active:scale-95">
+            <button onClick={handleShareTHR} disabled={((activeTab === 'image') && !imageSrc) || isProcessing} className="w-full py-3 bg-teal-600 hover:bg-teal-500 disabled:bg-slate-800 text-white text-[10px] font-black rounded-xl transition-all flex items-center justify-center gap-2 shadow-xl shadow-teal-900/20 active:scale-95">
               <ShareIcon className="w-4 h-4" /> SHARE (.THR)
             </button>
           </div>
-          <button onClick={handleDownloadGCode} disabled={(activeTab === 'image' && !imageSrc) || isProcessing} className="w-full py-3 bg-sky-600 hover:bg-sky-500 disabled:bg-slate-800 text-white text-[10px] font-black rounded-xl transition-all flex items-center justify-center gap-2 shadow-xl shadow-sky-900/20 active:scale-95">
+          <button onClick={handleDownloadGCode} disabled={((activeTab === 'image') && !imageSrc) || isProcessing} className="w-full py-3 bg-sky-600 hover:bg-sky-500 disabled:bg-slate-800 text-white text-[10px] font-black rounded-xl transition-all flex items-center justify-center gap-2 shadow-xl shadow-sky-900/20 active:scale-95">
             <ArrowDownTrayIcon className="w-4 h-4" /> EXPORT G-CODE
           </button>
         </div>

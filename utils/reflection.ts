@@ -1,27 +1,11 @@
 import { Point } from "../types";
 
 /**
- * Reflects a value inside a range [min, max] using "Ping-Pong" logic.
- * If the value exceeds the range, it is mirrored back.
+ * Clamps a value inside a range [min, max].
+ * (Previously used ping-pong reflection, now modified as requested to clamp)
  */
 export const reflectValue = (val: number, min: number, max: number): number => {
-    const range = max - min;
-    if (range <= 0) return min;
-    
-    // Normalize relative to min
-    let offset = val - min;
-    
-    // Handle negative values (mirroring towards the positive side)
-    if (offset < 0) offset = -offset;
-    
-    const count = Math.floor(offset / range);
-    const remainder = offset % range;
-    
-    if (count % 2 === 0) {
-        return min + remainder;
-    } else {
-        return max - remainder;
-    }
+    return Math.max(min, Math.min(max, val));
 };
 
 /**

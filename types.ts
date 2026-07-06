@@ -12,7 +12,7 @@ export type WorkspaceType = 'rectangular' | 'circular';
 export type PathStartPreference = 'original' | 'center' | 'edge';
 export type PathEndPreference = 'original' | 'center' | 'edge';
 
-export type PatternType = 'spirograph' | 'lissajous' | 'spiral' | 'polygon' | 'star' | 'heart' | 'rose' | 'text' | 'phyllotaxis' | 'modulo' | 'hypotrochoid' | 'epitrochoid' | 'fractal_tree' | 'superformula' | 'chladni_plate' | 'petalar' | 'orbital' | 'ellipse' | 'semicircle' | 'rectangle' | 'diamond' | 'trapezoid' | 'cardioid' | 'limacon' | 'lemniscate' | 'astroid' | 'deltoid' | 'nephroid' | 'trefoil' | 'quatrefoil' | 'cinquefoil' | 'figure8' | 'infinity' | 'torus2d' | 'golden_spiral' | 'teardrop' | 'cross' | 'bursty_bezier';
+export type PatternType = 'spirograph' | 'lissajous' | 'spiral' | 'polygon' | 'star' | 'heart' | 'rose' | 'text' | 'phyllotaxis' | 'modulo' | 'hypotrochoid' | 'epitrochoid' | 'fractal_tree' | 'fractal_leaf' | 'superformula' | 'chladni_plate' | 'petalar' | 'orbital' | 'ellipse' | 'semicircle' | 'rectangle' | 'diamond' | 'trapezoid' | 'cardioid' | 'limacon' | 'lemniscate' | 'astroid' | 'deltoid' | 'nephroid' | 'trefoil' | 'quatrefoil' | 'cinquefoil' | 'figure8' | 'infinity' | 'torus2d' | 'golden_spiral' | 'teardrop' | 'cross' | 'bursty_bezier';
 
 export interface PatternSettings {
   id: string;
@@ -67,6 +67,9 @@ export interface PatternSettings {
   // Transformations
   offsetX?: number;
   offsetY?: number;
+  // Simple Shapes (Ellipse, Diamond, Rectangle, etc.)
+  shapeAspectRatio?: number;
+  contourCount?: number;
 }
 
 export interface ImagePlacement {
@@ -101,10 +104,15 @@ export interface GCodeSettings {
   thrFlipX: boolean;
   thrFlipY: boolean;
   thrSwapXY: boolean;
+  photoBrightness?: number;
+  photoContrast?: number;
+  photoDither?: boolean;
+  removeBackground?: boolean;
 }
 
 export interface AnalysisResult {
   title: string;
   description: string;
   suggestedFeedRate: number;
+  eyeLocation?: { x: number; y: number };
 }

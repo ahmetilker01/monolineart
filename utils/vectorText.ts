@@ -74,7 +74,7 @@ for (const [char, str] of Object.entries(RAW_FONT)) {
 // Higher quality Catmull-Rom spline interpolation to make the text completely smooth.
 function catmullRom(points: Point[], numPoints: number = 8): Point[] {
     if (points.length < 3) return points;
-    const p = [points[0], ...points, points[points.length - 1]];
+    const p = [points[0]].concat(points, [points[points.length - 1]]);
     const result: Point[] = [];
     for (let i = 1; i < p.length - 2; i++) {
         const p0 = p[i - 1], p1 = p[i], p2 = p[i + 1], p3 = p[i + 2];
@@ -261,12 +261,14 @@ export const generateText = (text: string, isCircular: boolean, radius: number, 
     if (points.length === 0 || wasSpace) {
         // Very first point of everything, or after space, MUST jump
         letterPoints[0].isJump = true;
-        points.push(...catmullRom(letterPoints, 8));
+        const res = catmullRom(letterPoints, 8);
+        for(let j=0; j<res.length; j++) points.push(res[j]);
         wasSpace = false;
     } else {
         if (!connectLetters) {
             letterPoints[0].isJump = true;
-            points.push(...catmullRom(letterPoints, 8));
+            const res = catmullRom(letterPoints, 8);
+            for(let j=0; j<res.length; j++) points.push(res[j]);
         } else {
             // "Alttan birleştir": Soft continuous curve from the bottom
             const lastP = points[points.length - 1]; // last point of PREVIOUS char
@@ -291,12 +293,12 @@ export const generateText = (text: string, isCircular: boolean, radius: number, 
             connectionSpline.shift();
             
             // Push the connecting spline
-            points.push(...connectionSpline);
+            for(let j=0; j<connectionSpline.length; j++) points.push(connectionSpline[j]);
 
             // Now push the rest of the actual letter, completely smoothed
             const smoothLetter = catmullRom(letterPoints, 8);
             smoothLetter[0].isJump = false; // Force it to continue from the spline
-            points.push(...smoothLetter);
+            for(let j=0; j<smoothLetter.length; j++) points.push(smoothLetter[j]);
         }
     }
 

@@ -39,12 +39,14 @@ export const analyzeImageForCNC = async (base64Image: string): Promise<AnalysisR
       1. Provide a short, creative filename/title (max 3 words).
       2. Provide a 1-sentence description of the subject.
       3. Suggest a CNC feed rate (mm/min) between 500 and 3000 based on complexity (slower for complex/curved, faster for simple).
+      4. If there is a prominent eye (or a clear focal point resembling an eye) in the image, estimate its relative position (x, y) where x=0 is left, x=1 is right, y=0 is top, y=1 is bottom. If found, include "eyeLocation": {"x": number, "y": number}. If not found, do not include this field.
       
       Return ONLY valid JSON in this format:
       {
         "title": "string",
         "description": "string",
-        "suggestedFeedRate": number
+        "suggestedFeedRate": number,
+        "eyeLocation": { "x": number, "y": number } // Optional
       }
     `;
 
